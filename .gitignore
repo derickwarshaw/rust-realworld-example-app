@@ -24,3 +24,4 @@ conduit.toml
 target/**
 .Cargo.toml.swp
 *.*~
+*.env
