@@ -224,6 +224,7 @@ struct DatabaseConfig {
     connection_string: Option<String>,
     database_name: Option<String>,
     create_database_secret: Option<String>,
+    DATABASE_URL: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -297,6 +298,10 @@ lazy_static! {
     pub static ref CREATE_DATABASE_SECRET : String = match get_database_config().create_database_secret {
             Some(db_name) => db_name,
             None => panic!("create database secret not present in [database] section in {}", CONFIG_FILE_NAME),
+        };  
+    pub static ref DATABASE_URL : String = match get_database_config().DATABASE_URL {
+            Some(db_name) => db_name,
+            None => panic!("DATABASE_URL not present in [database] section in {}", CONFIG_FILE_NAME),
         };  
 }
 
