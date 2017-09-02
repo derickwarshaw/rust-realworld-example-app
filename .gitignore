@@ -23,3 +23,4 @@ Thumbs.db
 conduit.toml
 target/**
 .Cargo.toml.swp
+*.*~
