@@ -12,6 +12,8 @@ extern crate crypto;
 
 extern crate futures;
 extern crate tokio_core;
+
+#[cfg(tiberius)]
 extern crate tiberius;
 
 extern crate toml;
@@ -36,6 +38,7 @@ static COMMENT_SELECT : &'static str = r#"
   from Comments inner join Users ON Users.Id = Comments.Author where Comments.Id = @commentid
 "#;
 
+#[cfg(tiberius)]
 fn get_simple_comment_from_row( row : tiberius::query::QueryRow ) -> Option<Comment> {
     let id : i32 = row.get(0);
     let created_at : NaiveDateTime = row.get(1);
@@ -54,6 +57,7 @@ fn get_simple_comment_from_row( row : tiberius::query::QueryRow ) -> Option<Comm
 }
 
 
+#[cfg(tiberius)]
 fn get_comment_from_row( row : tiberius::query::QueryRow ) -> Option<CommentResult> {
     let result = Some(CommentResult{comment:get_simple_comment_from_row(row).unwrap()});
     result    
@@ -70,6 +74,7 @@ pub fn add_comment_handler(req: Request, res: Response, c: Captures) {
     let slug = &caps[0].replace("/api/articles/", "").replace("/comments", "");
     println!("add_comment_handler slug: '{}'", slug);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"declare @id int; select top 1 @id = id from Articles where Slug = @p1 ORDER BY 1; 
@@ -93,6 +98,7 @@ pub fn delete_comment_handler(req: Request, res: Response, c: Captures) {
     println!("delete_comment_handler url_params: {}",url_params);
     println!("id: {}", id);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"DELETE TOP(1) FROM Comments WHERE Id = @P1 AND Author=@P2;
@@ -114,6 +120,7 @@ pub fn get_comments_handler(req: Request, res: Response, c: Captures) {
     let slug = &caps[0].replace("/api/articles/", "").replace("/comments", "");
     println!("get_comments_handler slug: '{}'", slug);
 
+    #[cfg(tiberius)]
     process_container(
         res,
         r#"declare @id int; select top 1 @id = id from Articles where Slug = @p1 ORDER BY 1;

@@ -15,6 +15,8 @@ extern crate crypto;
 
 extern crate futures;
 extern crate tokio_core;
+
+#[cfg(tiberius)]
 extern crate tiberius;
 
 extern crate toml;
@@ -34,9 +36,13 @@ extern crate rand;
 
 extern crate unicase;
 
+#[cfg(tiberius)]
 use futures::Future;
 use tokio_core::reactor::Core;
+
+#[cfg(tiberius)]
 use tiberius::{SqlConnection};
+#[cfg(tiberius)]
 use tiberius::stmt::ResultStreamExt;
 
 use chrono::prelude::*;
@@ -356,6 +362,7 @@ use unicase::UniCase;
 use hyper::header::{ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 
+#[cfg(tiberius)]
 fn process<'a, T>(
         mut res: Response, 
         sql_command : &'static str,
@@ -398,6 +405,7 @@ fn process<'a, T>(
         }   
 }
 
+#[cfg(tiberius)]
 fn process_container<'a, T, U>(
         mut res: Response, 
         sql_command : &'static str,
@@ -448,10 +456,11 @@ use article::*;
 mod comment;
 use comment::*;
 
+#[cfg(tiberius)]
 fn handle_row_no_value(_: tiberius::query::QueryRow) -> tiberius::TdsResult<()> {
     Ok(())
 }
-
+#[cfg(tiberius)]
 fn handle_row_none(_: tiberius::query::QueryRow) -> Option<i32>
 {
     None
@@ -479,6 +488,7 @@ fn hello_handler(_: Request, res: Response, _: Captures) {
     res.send(b"Hello from Rust application in Hyper running in Azure IIS.").unwrap();
 }
 
+#[cfg(tiberius)]
 fn create_db_handler(mut req: Request, mut res: Response, _: Captures) {
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);    
@@ -511,6 +521,7 @@ fn options_handler(_: Request, mut res: Response, _: Captures) {
     );    
 }
 
+#[cfg(tiberius)]
 fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
     let mut result : Option<GetTagsResult> = None; 
 
@@ -557,7 +568,10 @@ fn main() {
 
     // Use raw strings so you don't need to escape patterns.
     builder.get(r"/", hello_handler);   
+    
+    #[cfg(tiberius)]
     builder.post(r"/createdb", create_db_handler);   
+    
     builder.post(r"/api/users/login", authentication_handler);   
     builder.post(r"/api/users", registration_handler);   
     builder.get(r"/api/user", get_current_user_handler);   
@@ -567,7 +581,10 @@ fn main() {
     builder.post(r"/api/profiles/.*/follow", follow_handler);   
     builder.delete(r"/api/profiles/.*/follow", unfollow_handler);  
     builder.post(r"/api/articles", create_article_handler);   
+    
+    #[cfg(tiberius)]    
     builder.get(r"/api/tags", get_tags_handler);   
+    
     builder.post(r"/api/articles/.*/comments", add_comment_handler);  
     builder.post(r"/api/articles/.*/favorite", favorite_article_handler);  
     builder.delete(r"/api/articles/.*/favorite", unfavorite_article_handler);

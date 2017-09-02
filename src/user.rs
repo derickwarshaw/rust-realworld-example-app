@@ -12,6 +12,8 @@ extern crate crypto;
 
 extern crate futures;
 extern crate tokio_core;
+
+#[cfg(tiberius)]
 extern crate tiberius;
 
 extern crate toml;
@@ -24,10 +26,15 @@ extern crate futures_state_stream;
 
 extern crate slug;
 
+#[cfg(tiberius)]
 use futures::Future;
 use tokio_core::reactor::Core;
+
+#[cfg(tiberius)]
 use tiberius::{SqlConnection};
+#[cfg(tiberius)]
 use tiberius::stmt::ResultStreamExt;
+
 use std::io::prelude::*;
 
 use hyper::server::{Request, Response};
@@ -76,6 +83,7 @@ pub fn login(token: &str) -> Option<i32> {
     }
 }
 
+#[cfg(tiberius)]
 fn get_user_from_row( row : tiberius::query::QueryRow ) -> (i32, String, Option<UserResult> ) {
     let email : &str = row.get(0);
     let token : &str = row.get(1);
@@ -90,11 +98,13 @@ fn get_user_from_row( row : tiberius::query::QueryRow ) -> (i32, String, Option<
     (user_id, token.to_string(), result)
 }
 
+#[cfg(tiberius)]
 fn get_user_from_row_simple( row : tiberius::query::QueryRow ) -> Option<UserResult> {
     let (_,_,result) = get_user_from_row(row);
     result
 }
 
+#[cfg(tiberius)]
 fn get_profile_from_row(row : tiberius::query::QueryRow) ->Option<ProfileResult> {
     let _ : &str = row.get(0);
     let _ : &str = row.get(1);
@@ -110,7 +120,9 @@ fn get_profile_from_row(row : tiberius::query::QueryRow) ->Option<ProfileResult>
     result
 }
 
+#[cfg(tiberius)]
 static USER_SELECT : &'static str = r#"SELECT [Email],[Token],[UserName],[Bio],[Image], Id FROM [dbo].[Users] WHERE [Id] = @id"#;
+#[cfg(tiberius)]
 static PROFILE_SELECT : &'static str = r#"SELECT [Email],[Token],[UserName],[Bio],[Image] ,
 ( SELECT COUNT(*) FROM dbo.Followings F WHERE F.[FollowingId] = Id AND F.FollowerId = @logged ) as Following
 FROM [dbo].[Users]  WHERE [UserName] = @username"#;
@@ -124,6 +136,7 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
     let token :&str = &crypto::pbkdf2::pbkdf2_simple(&user.password, 10000).unwrap();
     let user_name :&str = &user.username;
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"INSERT INTO [dbo].[Users]
@@ -150,6 +163,7 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     let password : &str = &update_user.user.password.as_ref().map(|x| &**x).unwrap_or("");
     let token : &str = &crypto::pbkdf2::pbkdf2_simple(password, 10000).unwrap();
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"  UPDATE [dbo].[Users] SET 
@@ -168,6 +182,7 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
 pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"DECLARE @id int = @P1;"#, USER_SELECT,
@@ -183,6 +198,7 @@ pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "");
     println!("profile: {}", profile);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;"#, PROFILE_SELECT,
@@ -198,6 +214,7 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;DELETE TOP (1) from [dbo].[Followings] WHERE [FollowerId] = @P2;"#, PROFILE_SELECT,
@@ -214,6 +231,7 @@ pub fn follow_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
 
+    #[cfg(tiberius)]
     process(
         res,
         r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;INSERT INTO [dbo].[Followings] ([FollowingId] ,[FollowerId])
@@ -233,6 +251,7 @@ pub fn authentication_handler(mut req: Request, mut res: Response, _: Captures) 
     let login : Login = serde_json::from_str(&body).unwrap();    
 
     let mut result : Option<UserResult> = None; 
+    #[cfg(tiberius)]
     {
         let mut sql = Core::new().unwrap();
         let email : &str = &login.user.email;
