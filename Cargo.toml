@@ -12,9 +12,9 @@ serde_json = "1.0"
 serde_derive = "1.0.2"
 chrono = { version = "0.4", features = ["serde", "rustc-serialize"] }
 rust-crypto = "*"
-#tiberius = { git = "https://github.com/steffengy/tiberius", default-features = true, features = ["chrono"] }
-#tiberius = { path = "D:\\S\\tiberius\\tiberius", default-features = true, features = ["chrono"] }
-tiberius = { git = "https://github.com/davidpodhola/tiberius", default-features = true, features = ["chrono"] }
+tiberius = { git = "https://github.com/steffengy/tiberius", default-features = true, features = ["chrono"], optional = true }
+#tiberius = { path = "D:\\S\\tiberius\\tiberius", default-features = true, features = ["chrono"], optional = true }
+#tiberius = { git = "https://github.com/davidpodhola/tiberius", default-features = true, features = ["chrono"], optional = true }
 futures = "*"
 tokio-core = "*"
 toml = "0.4"
@@ -25,9 +25,14 @@ futures-state-stream = "*"
 slug = "*"
 rand = "0.3"
 unicase = "1.4.0"
+diesel = { version = "0.15.0", features = ["postgres"], optional = true }
+diesel_codegen = { version = "0.15.0", features = ["postgres"], optional = true }
+dotenv = { version = "0.9.0", optional = true }
 
 [features]
-default = []
+default = [ "tiberius" ]
+mssql = [ "tiberius" ]
+orm = [ "diesel", "diesel_codegen", "dotenv" ]
 
 [dependencies.hyper]
 version = "*"
