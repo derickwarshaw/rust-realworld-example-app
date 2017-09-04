@@ -27,7 +27,7 @@ extern crate futures_state_stream;
 extern crate slug;
 
 use hyper::server::{Request, Response};
-use reroute::{Captures};
+use reroute::Captures;
 
 use slug::slugify;
 
@@ -43,55 +43,59 @@ static ARTICLE_SELECT : &'static str = r#"
 "#;
 
 #[cfg(tiberius)]
-fn get_simple_article_from_row( row : tiberius::query::QueryRow ) -> Option<Article> {
-    let slug : &str = row.get(0);
-    let title : &str = row.get(1);
-    let description : &str = row.get(2);
-    let body : &str = row.get(3);
-    let created : chrono::NaiveDateTime = row.get(4);
-    let updated : Option<chrono::NaiveDateTime> = row.get(5);
-    let user_name : &str = row.get(6);
-    let bio : Option<&str> = row.get(7);
-    let image : Option<&str> = row.get(8);
-    let f : i32 = row.get(9);
-    let following : bool = f == 1;
+fn get_simple_article_from_row(row: tiberius::query::QueryRow) -> Option<Article> {
+    let slug: &str = row.get(0);
+    let title: &str = row.get(1);
+    let description: &str = row.get(2);
+    let body: &str = row.get(3);
+    let created: chrono::NaiveDateTime = row.get(4);
+    let updated: Option<chrono::NaiveDateTime> = row.get(5);
+    let user_name: &str = row.get(6);
+    let bio: Option<&str> = row.get(7);
+    let image: Option<&str> = row.get(8);
+    let f: i32 = row.get(9);
+    let following: bool = f == 1;
     let favorites_count: i32 = row.get(10);
     let personal_favorite_count: i32 = row.get(11);
-    let favorited : bool = personal_favorite_count > 0;
-    let tags_combined : &str = row.get(12);
+    let favorited: bool = personal_favorite_count > 0;
+    let tags_combined: &str = row.get(12);
 
-    let profile = Profile{ username: user_name.to_string(), bio:bio.map(|s| s.to_string()),
-        image:image.map(|s| s.to_string()), following : following };
-    
-    let result = Article{ 
+    let profile = Profile {
+        username: user_name.to_string(),
+        bio: bio.map(|s| s.to_string()),
+        image: image.map(|s| s.to_string()),
+        following: following,
+    };
+
+    let result = Article {
         slug: slug.to_string(),
         title: title.to_string(),
-        description : description.to_string(),
-        body : body.to_string(),
+        description: description.to_string(),
+        body: body.to_string(),
         tagList: tags_combined.split(",").map(|q| q.to_string()).collect(),
         createdAt: created,
         updatedAt: updated,
-        favorited : favorited,
-        favoritesCount : favorites_count,
-        author : profile                                    
+        favorited: favorited,
+        favoritesCount: favorites_count,
+        author: profile,
     };
     Some(result)
 }
 
 #[cfg(tiberius)]
-fn get_article_from_row( row : tiberius::query::QueryRow ) -> Option<CreateArticleResult> {
-    Some(CreateArticleResult{ article:get_simple_article_from_row(row).unwrap() })
+fn get_article_from_row(row: tiberius::query::QueryRow) -> Option<CreateArticleResult> {
+    Some(CreateArticleResult { article: get_simple_article_from_row(row).unwrap() })
 }
 pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let (body, logged_in_user_id) = prepare_parameters(req);
-    
-    let create_article : CreateArticle = serde_json::from_str(&body).unwrap();     
-    let title : &str = &create_article.article.title;
-    let description : &str = &create_article.article.description;
-    let body : &str = &create_article.article.body;
-    let tag_list : Vec<String> = create_article.article.tagList.unwrap_or(Vec::new());
-    let slug : &str = &slugify(title);
-    let tags : &str = &tag_list.join(",");
+
+    let create_article: CreateArticle = serde_json::from_str(&body).unwrap();
+    let title: &str = &create_article.article.title;
+    let description: &str = &create_article.article.description;
+    let body: &str = &create_article.article.body;
+    let tag_list: Vec<String> = create_article.article.tagList.unwrap_or(Vec::new());
+    let slug: &str = &slugify(title);
+    let tags: &str = &tag_list.join(",");
 
     #[cfg(tiberius)]
     process(
@@ -107,43 +111,55 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
-fn process_and_return_article(name : &str, req: Request, res: Response, c: Captures, sql_command : &'static str ) {
-    let (_, logged_id) = prepare_parameters( req );
-    
+fn process_and_return_article(name: &str,
+                              req: Request,
+                              res: Response,
+                              c: Captures,
+                              sql_command: &'static str) {
+    let (_, logged_id) = prepare_parameters(req);
+
     let caps = c.unwrap();
-    let slug = &caps[0].replace("/api/articles/", "").replace("/favorite", "");
+    let slug = &caps[0]
+                    .replace("/api/articles/", "")
+                    .replace("/favorite", "");
     println!("{} slug: '{}'", name, slug);
     println!("logged_id: {}", logged_id);
 
     #[cfg(tiberius)]
-    process(
-        res,
-        sql_command,
-        ARTICLE_SELECT,
-        get_article_from_row,
-        &[&(slug.as_str()), &(logged_id)]
-    ); 
+    process(res,
+            sql_command,
+            ARTICLE_SELECT,
+            get_article_from_row,
+            &[&(slug.as_str()), &(logged_id)]);
 }
 
 pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
-    process_and_return_article("favorite_article_handler", req, res, c, "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; DECLARE @logged int = @P2;
+    process_and_return_article("favorite_article_handler",
+                               req,
+                               res,
+                               c,
+                               "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; DECLARE @logged int = @P2;
                 INSERT INTO [dbo].[FavoritedArticles]
 	            ([ArticleId],
 	            [UserId])
-	            VALUES (@id,@P2)");              
+	            VALUES (@id,@P2)");
 }
 
 pub fn unfavorite_article_handler(req: Request, res: Response, c: Captures) {
-    process_and_return_article("unfavorite_article_handler", req, res, c, "declare @id int; DECLARE @logged int = @P2;
+    process_and_return_article("unfavorite_article_handler",
+                               req,
+                               res,
+                               c,
+                               "declare @id int; DECLARE @logged int = @P2;
                 select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1;
                 DELETE TOP(1) FROM FavoritedArticles WHERE ArticleId = @id AND UserId = @P2;
                 ");
 }
 
-fn articles_result( _ : ArticlesResult ) {}
+fn articles_result(_: ArticlesResult) {}
 
 pub fn feed_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_id) = prepare_parameters( req );
+    let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let url_params = &caps[0].replace("/api/articles/feed?", "");
@@ -152,20 +168,18 @@ pub fn feed_handler(req: Request, res: Response, c: Captures) {
 
     let parsed_params: Vec<&str> = url_params.split('&').collect();
 
-    let mut limit :i32 = 20;
-    let mut offset :i32 = 0;
+    let mut limit: i32 = 20;
+    let mut offset: i32 = 0;
 
     for param in &parsed_params {
         let name_value: Vec<&str> = param.split('=').collect();
 
         if name_value[0] == "offset" {
             offset = name_value[1].parse::<i32>().unwrap();
-        }
-        else if name_value[0] == "limit" {
+        } else if name_value[0] == "limit" {
             limit = name_value[1].parse::<i32>().unwrap();
-        }
-        ;
-    }    
+        };
+    }
 
     #[cfg(tiberius)]
     process_container(
@@ -187,7 +201,7 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
 }
 
 pub fn list_article_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_id) = prepare_parameters( req );
+    let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let url_params = &caps[0].replace("/api/articles?", "");
@@ -196,8 +210,8 @@ pub fn list_article_handler(req: Request, res: Response, c: Captures) {
 
     let parsed_params: Vec<&str> = url_params.split('&').collect();
 
-    let mut limit :i32 = 20;
-    let mut offset :i32 = 0;
+    let mut limit: i32 = 20;
+    let mut offset: i32 = 0;
     let mut tag = "";
     let mut author = "";
     let mut favorited = "";
@@ -207,20 +221,15 @@ pub fn list_article_handler(req: Request, res: Response, c: Captures) {
 
         if name_value[0] == "tag" {
             tag = name_value[1];
-        } 
-        else if name_value[0] == "author" {
+        } else if name_value[0] == "author" {
             author = name_value[1];
-        }
-        else if name_value[0] == "favorited" {
+        } else if name_value[0] == "favorited" {
             favorited = name_value[1];
-        }
-        else if name_value[0] == "offset" {
+        } else if name_value[0] == "offset" {
             offset = name_value[1].parse::<i32>().unwrap();
-        }
-        else if name_value[0] == "limit" {
+        } else if name_value[0] == "limit" {
             limit = name_value[1].parse::<i32>().unwrap();
-        }
-        ;
+        };
     }
 
     #[cfg(tiberius)]
@@ -250,14 +259,16 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
         get_simple_article_from_row,
         articles_result,
         &[&logged_id, &offset, &limit, &tag, &author, &favorited]
-    );                       
+    );
 }
 
 pub fn get_article_handler(req: Request, res: Response, c: Captures) {
-    process_and_return_article(
-        "get_article_handler", req, res, c, 
-        "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; 
-        DECLARE @logged int = @P2;");              
+    process_and_return_article("get_article_handler",
+                               req,
+                               res,
+                               c,
+                               "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; 
+        DECLARE @logged int = @P2;");
 }
 
 pub fn update_article_handler(req: Request, res: Response, c: Captures) {
@@ -267,16 +278,30 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
     let slug = &caps[0].replace("/api/articles/", "");
     println!("slug {}", &slug);
 
-    let update_article : UpdateArticle = serde_json::from_str(&body).unwrap();     
-    let title : &str = update_article.article.title.as_ref().map(|x| &**x).unwrap_or("");
-    let body : &str = update_article.article.body.as_ref().map(|x| &**x).unwrap_or("");
-    let description : &str = update_article.article.description.as_ref().map(|x| &**x).unwrap_or("");
-    let new_slug : &str = &slugify(title);
+    let update_article: UpdateArticle = serde_json::from_str(&body).unwrap();
+    let title: &str = update_article
+        .article
+        .title
+        .as_ref()
+        .map(|x| &**x)
+        .unwrap_or("");
+    let body: &str = update_article
+        .article
+        .body
+        .as_ref()
+        .map(|x| &**x)
+        .unwrap_or("");
+    let description: &str = update_article
+        .article
+        .description
+        .as_ref()
+        .map(|x| &**x)
+        .unwrap_or("");
+    let new_slug: &str = &slugify(title);
 
     #[cfg(tiberius)]
-    process(
-        res,
-        r#"
+    process(res,
+            r#"
         declare @id int; select TOP(1) @id = id from Articles where Slug = @P1; 
         DECLARE @logged int = @P5;
         UPDATE TOP(1) [dbo].[Articles] SET 
@@ -285,70 +310,73 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
         [Body]=CASE WHEN(LEN(@P4)=0) THEN Description ELSE @P4 END,
         [Slug]=CASE WHEN(LEN(@P2)=0) THEN [Slug] ELSE @P6 END
         WHERE [Id] = @id AND Author = @logged; 
-        "#, 
-        ARTICLE_SELECT,
-        get_article_from_row,
-        &[&(slug.as_str()), &title, &description, &body, &logged_id, &new_slug]
-    );
+        "#,
+            ARTICLE_SELECT,
+            get_article_from_row,
+            &[&(slug.as_str()),
+              &title,
+              &description,
+              &body,
+              &logged_id,
+              &new_slug]);
 }
 
 pub fn delete_article_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_id) = prepare_parameters( req );
+    let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let slug = &caps[0].replace("/api/articles/", "");
     println!("slug: {}", slug);
 
     #[cfg(tiberius)]
-    process(
-        res,
-        "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 AND Author = @P2 ORDER BY 1; 
+    process(res,
+            "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 AND Author = @P2 ORDER BY 1; 
         DELETE FROM Comments WHERE ArticleId = @id;
         DELETE FROM FavoritedArticles WHERE ArticleId = @id;
         DELETE FROM ArticleTags WHERE ArticleId = @id;
         DELETE FROM Articles WHERE id = @id AND Author = @P2;",
-        "SELECT 1",
-        handle_row_none,
-        &[&(slug.as_str()),&(logged_id)]
-    );
+            "SELECT 1",
+            handle_row_none,
+            &[&(slug.as_str()), &(logged_id)]);
 }
 
 #[cfg(test)]
 use rand::Rng;
 
 #[cfg(test)]
-pub fn login_create_article(follow:bool) -> (std::string::String, std::string::String, std::string::String) {
+pub fn login_create_article(follow: bool)
+                            -> (std::string::String, std::string::String, std::string::String) {
     let client = Client::new();
 
-    let ( user_name, _, jwt ) = 
-        if follow { 
-            user::follow_jacob() 
-        } else { 
-            let ( user_name, email ) = register_jacob() ;
-            let jwt = login_jacob( email.to_owned(), user::JACOB_PASSWORD.to_string() );  
-            ( user_name, email, jwt )
-        };
+    let (user_name, _, jwt) = if follow {
+        user::follow_jacob()
+    } else {
+        let (user_name, email) = register_jacob();
+        let jwt = login_jacob(email.to_owned(), user::JACOB_PASSWORD.to_string());
+        (user_name, email, jwt)
+    };
 
     let since = since_the_epoch();
-    let num = rand::thread_rng().gen_range(0, 1000);    
-    let title = format!( "How to train your dragon {}-{}", since, num );   
-    let slug : &str = &slugify(title.to_owned());
+    let num = rand::thread_rng().gen_range(0, 1000);
+    let title = format!("How to train your dragon {}-{}", since, num);
+    let slug: &str = &slugify(title.to_owned());
 
     let body = format!( r#"{{"article": {{"title": "{}","description": "Ever wonder how?","body": "You have to believe",
-                "tagList": ["reactjs", "angularjs", "dragons"]}}}}"#, title);    
+                "tagList": ["reactjs", "angularjs", "dragons"]}}}}"#, title);
 
-    let mut res = client.post("http://localhost:6767/api/articles")
-        .header(Authorization(Bearer {token: jwt.to_owned()}))
+    let mut res = client
+        .post("http://localhost:6767/api/articles")
+        .header(Authorization(Bearer { token: jwt.to_owned() }))
         .body(&body)
         .send()
         .unwrap();
 
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
+    res.read_to_string(&mut buffer).unwrap();
 
-    let create_result : CreateArticleResult = serde_json::from_str(&buffer).unwrap();   
-    let article = create_result.article;  
-    assert_eq!(article.title, title); 
+    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
+    assert_eq!(article.title, title);
     assert_eq!(article.slug, slug);
     assert_eq!(article.favorited, false);
     assert_eq!(article.author.username, user_name);
@@ -373,15 +401,16 @@ fn favorite_article_test() {
     let (jwt, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}/favorite", slug);
 
-    let mut res = client.post(&url)
-        .header(Authorization(Bearer {token: jwt}))
+    let mut res = client
+        .post(&url)
+        .header(Authorization(Bearer { token: jwt }))
         .send()
         .unwrap();
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
-        
-    let create_result : CreateArticleResult = serde_json::from_str(&buffer).unwrap();   
-    let article = create_result.article;  
+    res.read_to_string(&mut buffer).unwrap();
+
+    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
     assert_eq!(article.slug, slug);
     assert_eq!(article.favorited, true);
     assert_eq!(article.favoritesCount, 1);
@@ -398,16 +427,17 @@ fn unfavorite_article_test() {
     let (jwt, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}/favorite", slug);
 
-    let mut res = client.delete(&url)
-        .header(Authorization(Bearer {token: jwt}))
+    let mut res = client
+        .delete(&url)
+        .header(Authorization(Bearer { token: jwt }))
         .body("")
         .send()
         .unwrap();
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
-        
-    let create_result : CreateArticleResult = serde_json::from_str(&buffer).unwrap();   
-    let article = create_result.article;  
+    res.read_to_string(&mut buffer).unwrap();
+
+    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
     assert_eq!(article.slug, slug);
     assert_eq!(article.favorited, false);
     assert_eq!(article.favoritesCount, 0);
@@ -424,16 +454,14 @@ fn get_article_test() {
     let (_, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}", slug);
 
-    let mut res = client.get(&url)
-        .send()
-        .unwrap();
+    let mut res = client.get(&url).send().unwrap();
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
-        
+    res.read_to_string(&mut buffer).unwrap();
 
-    let create_result : CreateArticleResult = serde_json::from_str(&buffer).unwrap();   
-    let article = create_result.article;  
-    assert_eq!(article.slug, slug);    
+
+    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
+    assert_eq!(article.slug, slug);
     assert_eq!(article.favorited, false);
     assert_eq!(article.favoritesCount, 0);
     assert_eq!(article.author.username, user_name);
@@ -448,17 +476,18 @@ fn list_article_test() {
 
     let (_, _, _) = login_create_article(false);
 
-    let mut res = client.get("http://localhost:6767/api/articles?tag=dragons")
+    let mut res = client
+        .get("http://localhost:6767/api/articles?tag=dragons")
         .body("")
         .send()
         .unwrap();
     assert_eq!(res.status, hyper::Ok);
 
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
+    res.read_to_string(&mut buffer).unwrap();
 
-    let articles : ArticlesResult = serde_json::from_str(&buffer).unwrap();       
-    assert_eq!(articles.articles.len()>0, true);
+    let articles: ArticlesResult = serde_json::from_str(&buffer).unwrap();
+    assert_eq!(articles.articles.len() > 0, true);
 }
 
 #[cfg(test)]
@@ -468,17 +497,18 @@ fn unfollowed_feed_article_test() {
 
     let (jwt, _, _) = login_create_article(false);
 
-    let mut res = client.get("http://localhost:6767/api/articles/feed")
-        .header(Authorization(Bearer {token: jwt}))
+    let mut res = client
+        .get("http://localhost:6767/api/articles/feed")
+        .header(Authorization(Bearer { token: jwt }))
         .send()
         .unwrap();
     assert_eq!(res.status, hyper::Ok);
 
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
+    res.read_to_string(&mut buffer).unwrap();
 
-    let articles : ArticlesResult = serde_json::from_str(&buffer).unwrap();       
-    assert_eq!(articles.articles.len()==0, true);
+    let articles: ArticlesResult = serde_json::from_str(&buffer).unwrap();
+    assert_eq!(articles.articles.len() == 0, true);
 }
 
 #[cfg(test)]
@@ -488,17 +518,18 @@ fn followed_feed_article_test() {
 
     let (jwt, _, _) = login_create_article(true);
 
-    let mut res = client.get("http://localhost:6767/api/articles/feed")
-        .header(Authorization(Bearer {token: jwt}))
+    let mut res = client
+        .get("http://localhost:6767/api/articles/feed")
+        .header(Authorization(Bearer { token: jwt }))
         .send()
         .unwrap();
     assert_eq!(res.status, hyper::Ok);
 
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
+    res.read_to_string(&mut buffer).unwrap();
 
-    let articles : ArticlesResult = serde_json::from_str(&buffer).unwrap();       
-    assert_eq!(articles.articles.len()==1, true);
+    let articles: ArticlesResult = serde_json::from_str(&buffer).unwrap();
+    assert_eq!(articles.articles.len() == 1, true);
 }
 
 #[cfg(test)]
@@ -509,17 +540,19 @@ fn update_article_test() {
     let (jwt, title, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}", title);
     let title2 = title + " NOT";
-    let body = format!(r#"{{"article": {{"title": "{}","description": "CHANGED1","body": "CHANGED2"}}}}"#, title2);
+    let body = format!(r#"{{"article": {{"title": "{}","description": "CHANGED1","body": "CHANGED2"}}}}"#,
+                title2);
 
-    let mut res = client.put(&url)
-        .header(Authorization(Bearer {token: jwt}))
+    let mut res = client
+        .put(&url)
+        .header(Authorization(Bearer { token: jwt }))
         .body(&body)
         .send()
         .unwrap();
     let mut buffer = String::new();
-    res.read_to_string(&mut buffer).unwrap(); 
+    res.read_to_string(&mut buffer).unwrap();
 
-    let create_result : CreateArticleResult = serde_json::from_str(&buffer).unwrap();   
+    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
     let article = create_result.article;
     assert_eq!(article.slug, slugify(title2.to_owned()));
     assert_eq!(article.title, title2);
@@ -538,8 +571,9 @@ fn delete_article_test() {
     let (jwt, title, _) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}", title);
 
-    let res = client.delete(&url)
-        .header(Authorization(Bearer {token: jwt}))
+    let res = client
+        .delete(&url)
+        .header(Authorization(Bearer { token: jwt }))
         .body("")
         .send()
         .unwrap();
