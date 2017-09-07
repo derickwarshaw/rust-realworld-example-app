@@ -13,7 +13,7 @@ extern crate crypto;
 extern crate futures;
 extern crate tokio_core;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 extern crate tiberius;
 
 extern crate toml;
@@ -33,6 +33,19 @@ use slug::slugify;
 
 use super::*;
 
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+struct ArticlesResult {
+    articles: Vec<Article>,
+}
+
+impl Container<Article> for ArticlesResult {
+    fn create_new_with_items(articles: Vec<Article>) -> ArticlesResult {
+        ArticlesResult { articles: articles }
+    }
+}
+
 static ARTICLE_SELECT : &'static str = r#"
   SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
                 (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
@@ -42,7 +55,7 @@ static ARTICLE_SELECT : &'static str = r#"
                 FROM Articles INNER JOIN Users on Author=Users.Id  WHERE Articles.Id = @id
 "#;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_simple_article_from_row(row: tiberius::query::QueryRow) -> Option<Article> {
     let slug: &str = row.get(0);
     let title: &str = row.get(1);
@@ -82,7 +95,7 @@ fn get_simple_article_from_row(row: tiberius::query::QueryRow) -> Option<Article
     Some(result)
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_article_from_row(row: tiberius::query::QueryRow) -> Option<CreateArticleResult> {
     Some(CreateArticleResult { article: get_simple_article_from_row(row).unwrap() })
 }
@@ -97,7 +110,7 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let slug: &str = &slugify(title);
     let tags: &str = &tag_list.join(",");
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(
         res,
         r#"insert into Tags (Tag) SELECT EmployeeID = Item FROM dbo.SplitNVarchars(@P6, ',')  Except select Tag from Tags;                            
@@ -125,7 +138,7 @@ fn process_and_return_article(name: &str,
     println!("{} slug: '{}'", name, slug);
     println!("logged_id: {}", logged_id);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             sql_command,
             ARTICLE_SELECT,
@@ -181,7 +194,7 @@ pub fn feed_handler(req: Request, res: Response, c: Captures) {
         };
     }
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process_container(
         res,
         r#"declare @logged int = @p1;
@@ -232,7 +245,7 @@ pub fn list_article_handler(req: Request, res: Response, c: Captures) {
         };
     }
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process_container(
         res,
         r#"declare @logged int = @p1;
@@ -299,7 +312,7 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
         .unwrap_or("");
     let new_slug: &str = &slugify(title);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             r#"
         declare @id int; select TOP(1) @id = id from Articles where Slug = @P1; 
@@ -328,7 +341,7 @@ pub fn delete_article_handler(req: Request, res: Response, c: Captures) {
     let slug = &caps[0].replace("/api/articles/", "");
     println!("slug: {}", slug);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 AND Author = @P2 ORDER BY 1; 
         DELETE FROM Comments WHERE ArticleId = @id;

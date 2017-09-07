@@ -16,7 +16,7 @@ extern crate crypto;
 extern crate futures;
 extern crate tokio_core;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 extern crate tiberius;
 
 extern crate toml;
@@ -36,13 +36,14 @@ extern crate rand;
 
 extern crate unicase;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 use futures::Future;
+#[cfg(feature = "tiberius")]
 use tokio_core::reactor::Core;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 use tiberius::SqlConnection;
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 use tiberius::stmt::ResultStreamExt;
 
 use chrono::prelude::*;
@@ -55,8 +56,8 @@ use std::path::PathBuf;
 
 use hyper::server::{Server, Request, Response};
 use reroute::{RouterBuilder, Captures};
-use hyper::status::StatusCode;
 use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders};
+use hyper::status::StatusCode;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -99,19 +100,6 @@ struct Article {
     favorited: bool,
     favoritesCount: i32,
     author: Profile,
-}
-
-#[derive(Serialize, Deserialize)]
-#[derive(Debug)]
-#[allow(non_snake_case)]
-struct ArticlesResult {
-    articles: Vec<Article>,
-}
-
-impl Container<Article> for ArticlesResult {
-    fn create_new_with_items(articles: Vec<Article>) -> ArticlesResult {
-        ArticlesResult { articles: articles }
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -226,6 +214,7 @@ struct DatabaseConfig {
     connection_string: Option<String>,
     database_name: Option<String>,
     create_database_secret: Option<String>,
+    #[cfg(not(feature = "tiberius"))]
     DATABASE_URL: Option<String>,
 }
 
@@ -288,6 +277,7 @@ struct GetTagsResult {
 
 static CONFIG_FILE_NAME: &'static str = r#"conduit.toml"#;
 
+#[cfg(feature = "tiberius")]
 lazy_static! {
     pub static ref CONNECTION_STRING : String = match get_database_config().connection_string {
             Some(cnn) => cnn,
@@ -301,6 +291,9 @@ lazy_static! {
             Some(db_name) => db_name,
             None => panic!("create database secret not present in [database] section in {}", CONFIG_FILE_NAME),
         };  
+}
+#[cfg(not(feature = "tiberius"))]
+lazy_static! {
     pub static ref DATABASE_URL : String = match get_database_config().DATABASE_URL {
             Some(db_name) => db_name,
             None => panic!("DATABASE_URL not present in [database] section in {}", CONFIG_FILE_NAME),
@@ -365,7 +358,7 @@ use unicase::UniCase;
 use hyper::header::ContentType;
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn process<'a, T>(mut res: Response,
                   sql_command: &'static str,
                   sql_select_command: &'static str,
@@ -373,6 +366,8 @@ fn process<'a, T>(mut res: Response,
                   sql_params: &'a [&'a tiberius::ty::ToSql])
     where T: serde::Serialize
 {
+    println!("process entered.");
+
     let mut result: Option<T> = None;
     {
         let mut sql = Core::new().unwrap();
@@ -400,12 +395,13 @@ fn process<'a, T>(mut res: Response,
     if result.is_some() {
         let result = result.unwrap();
         let result = serde_json::to_string(&result).unwrap();
+        println!("Sending '{:?}'", result.to_owned());
         let result: &[u8] = result.as_bytes();
         res.send(&result).unwrap();
     }
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn process_container<'a, T, U>(mut res: Response,
                                sql_command: &'static str,
                                sql_select_command: &'static str,
@@ -458,11 +454,11 @@ use article::*;
 mod comment;
 use comment::*;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn handle_row_no_value(_: tiberius::query::QueryRow) -> tiberius::TdsResult<()> {
     Ok(())
 }
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn handle_row_none(_: tiberius::query::QueryRow) -> Option<i32> {
     None
 }
@@ -488,7 +484,7 @@ fn hello_handler(_: Request, res: Response, _: Captures) {
         .unwrap();
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn create_db_handler(mut req: Request, mut res: Response, _: Captures) {
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);
@@ -519,7 +515,7 @@ fn options_handler(_: Request, mut res: Response, _: Captures) {
                               vec![(Attr::Charset, Value::Utf8)])));
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
     let mut result: Option<GetTagsResult> = None;
 
@@ -566,7 +562,7 @@ fn main() {
     // Use raw strings so you don't need to escape patterns.
     builder.get(r"/", hello_handler);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     builder.post(r"/createdb", create_db_handler);
 
     builder.post(r"/api/users/login", authentication_handler);
@@ -579,7 +575,7 @@ fn main() {
     builder.delete(r"/api/profiles/.*/follow", unfollow_handler);
     builder.post(r"/api/articles", create_article_handler);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     builder.get(r"/api/tags", get_tags_handler);
 
     builder.post(r"/api/articles/.*/comments", add_comment_handler);

@@ -13,7 +13,7 @@ extern crate crypto;
 extern crate futures;
 extern crate tokio_core;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 extern crate tiberius;
 
 extern crate toml;
@@ -26,21 +26,22 @@ extern crate futures_state_stream;
 
 extern crate slug;
 
-#[cfg(tiberius)]
+use hyper::status::StatusCode;
+
+#[cfg(feature = "tiberius")]
 use futures::Future;
+#[cfg(feature = "tiberius")]
 use tokio_core::reactor::Core;
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 use tiberius::SqlConnection;
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 use tiberius::stmt::ResultStreamExt;
 
 use std::io::prelude::*;
 
 use hyper::server::{Request, Response};
 use reroute::Captures;
-use hyper::header::{Authorization, Bearer};
-use hyper::status::StatusCode;
 
 use crypto::sha2::Sha256;
 
@@ -80,7 +81,7 @@ pub fn login(token: &str) -> Option<i32> {
     }
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_user_from_row(row: tiberius::query::QueryRow) -> (i32, String, Option<UserResult>) {
     let email: &str = row.get(0);
     let token: &str = row.get(1);
@@ -100,13 +101,13 @@ fn get_user_from_row(row: tiberius::query::QueryRow) -> (i32, String, Option<Use
     (user_id, token.to_string(), result)
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_user_from_row_simple(row: tiberius::query::QueryRow) -> Option<UserResult> {
     let (_, _, result) = get_user_from_row(row);
     result
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 fn get_profile_from_row(row: tiberius::query::QueryRow) -> Option<ProfileResult> {
     let _: &str = row.get(0);
     let _: &str = row.get(1);
@@ -126,10 +127,10 @@ fn get_profile_from_row(row: tiberius::query::QueryRow) -> Option<ProfileResult>
     result
 }
 
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 static USER_SELECT: &'static str =
     r#"SELECT [Email],[Token],[UserName],[Bio],[Image], Id FROM [dbo].[Users] WHERE [Id] = @id"#;
-#[cfg(tiberius)]
+#[cfg(feature = "tiberius")]
 static PROFILE_SELECT : &'static str = r#"SELECT [Email],[Token],[UserName],[Bio],[Image] ,
 ( SELECT COUNT(*) FROM dbo.Followings F WHERE F.[FollowingId] = Id AND F.FollowerId = @logged ) as Following
 FROM [dbo].[Users]  WHERE [UserName] = @username"#;
@@ -143,19 +144,20 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
     let token: &str = &crypto::pbkdf2::pbkdf2_simple(&user.password, 10000).unwrap();
     let user_name: &str = &user.username;
 
-    #[cfg(tiberius)]
-    process(res,
-            r#"INSERT INTO [dbo].[Users]
-                ([Email]
-                ,[Token]
-                ,[UserName])
-            VALUES
-                (@P1
-                ,@P2
-                ,@P3); DECLARE @id int = SCOPE_IDENTITY();"#,
-            USER_SELECT,
-            get_user_from_row_simple,
-            &[&email, &token, &user_name]);
+    #[cfg(feature = "tiberius")] {
+        process(res,
+                r#"INSERT INTO [dbo].[Users]
+                    ([Email]
+                    ,[Token]
+                    ,[UserName])
+                VALUES
+                    (@P1
+                    ,@P2
+                    ,@P3); DECLARE @id int = SCOPE_IDENTITY();"#,
+                USER_SELECT,
+                get_user_from_row_simple,
+                &[&email, &token, &user_name]);
+    }
 }
 
 pub fn update_user_handler(req: Request, res: Response, _: Captures) {
@@ -179,7 +181,7 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
                               .unwrap_or("");
     let token: &str = &crypto::pbkdf2::pbkdf2_simple(password, 10000).unwrap();
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             r#"  UPDATE [dbo].[Users] SET 
                                 [UserName]=CASE WHEN(LEN(@P2)=0) THEN UserName ELSE @P2 END,
@@ -203,7 +205,7 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
 pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             r#"DECLARE @id int = @P1;"#,
             USER_SELECT,
@@ -218,7 +220,7 @@ pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "");
     println!("profile: {}", profile);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(res,
             r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;"#,
             PROFILE_SELECT,
@@ -233,7 +235,7 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(
         res,
         r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;DELETE TOP (1) from [dbo].[Followings] WHERE [FollowerId] = @P2;"#, PROFILE_SELECT,
@@ -250,7 +252,7 @@ pub fn follow_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
 
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     process(
         res,
         r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;INSERT INTO [dbo].[Followings] ([FollowingId] ,[FollowerId])
@@ -260,17 +262,13 @@ pub fn follow_handler(req: Request, res: Response, c: Captures) {
     );
 }
 
-use unicase::UniCase;
-use hyper::header::ContentType;
-use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
-
 pub fn authentication_handler(mut req: Request, mut res: Response, _: Captures) {
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);
     let login: Login = serde_json::from_str(&body).unwrap();
 
     let mut result: Option<UserResult> = None;
-    #[cfg(tiberius)]
+    #[cfg(feature = "tiberius")]
     {
         let mut sql = Core::new().unwrap();
         let email: &str = &login.user.email;
