@@ -35,6 +35,8 @@ Create database.
 
 Copy `conduit - sample.toml` to `conduit.toml` and set your connection string in `DATABASE_URL` there. 
 
+Also use `.env` and run `echo DATABASE_URL=<DATABASE_URL from conduit.toml> > .env`
+
 Run `diesel setup --database-url='<DATABASE_URL from conduit.toml>'` script to create the database structure and all the tables, functions etc.
 
 Build with `cargo build`.

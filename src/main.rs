@@ -36,6 +36,23 @@ extern crate rand;
 
 extern crate unicase;
 
+#[cfg(feature = "diesel")]
+#[macro_use] extern crate diesel;
+#[cfg(feature = "diesel")]
+#[macro_use] extern crate diesel_codegen;
+#[cfg(feature = "diesel")]
+extern crate dotenv;
+
+#[cfg(feature = "diesel")]
+pub mod schema;
+#[cfg(feature = "diesel")]
+pub mod models;
+#[cfg(feature = "diesel")]
+use models::*;
+
+#[cfg(feature = "diesel")]
+use dotenv::dotenv;
+
 #[cfg(feature = "tiberius")]
 use futures::Future;
 #[cfg(feature = "tiberius")]
@@ -61,6 +78,11 @@ use hyper::status::StatusCode;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "diesel")]
+use diesel::prelude::*;
+#[cfg(feature = "diesel")]
+use diesel::pg::PgConnection;
+
 pub fn since_the_epoch() -> u64 {
     let start = SystemTime::now();
     let since_the_epoch = start
@@ -76,6 +98,7 @@ trait Container<T> {
     fn create_new_with_items(Vec<T>) -> Self;
 }
 
+#[cfg(feature = "tiberius")]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 struct User {
@@ -551,6 +574,10 @@ fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
 }
 
 fn main() {
+    #[cfg(feature = "diesel")] {
+        dotenv().ok();
+    }
+
     let port = iis::get_port();
 
     let listen_on = format!("127.0.0.1:{}", port);
