@@ -521,6 +521,8 @@ fn process_container<'a, T, U, V>(
           U: serde::Serialize,
           V: std::fmt::Debug,
 {
+    println!("process_container entered with params {:?}.", params);
+
     let mut items: Vec<T> = process_params(params);
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
@@ -534,6 +536,7 @@ fn process_container<'a, T, U, V>(
 
     let result = U::create_new_with_items(items);
     let result = serde_json::to_string(&result).unwrap();
+    println!("Sending '{:?}'", result.to_owned());
     let result: &[u8] = result.as_bytes();
     res.send(&result).unwrap();
 }
