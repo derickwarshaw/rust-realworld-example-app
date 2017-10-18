@@ -46,4 +46,7 @@ This is an application written in [Rust](https://www.rust-lang.org/en-US/index.h
 - install [PostgreSQL](https://www.postgresql.org/download/windows/); skip Stack Builder if you do not need to install anything else
 - use pgAdmin 4 from `C:\Program Files\PostgreSQL\10\pgAdmin 4\bin` to connect to the server (username `postgres`, password from the previous step)
 - go to Servers -> PostgreSQL 10 -> Databases and create a new database `conduit`
-- 
+- set environment variable `PQ_LIB_DIR` to `C:\Program Files\PostgreSQL\10\lib`dir (you need to call refreshenv in the opened cmd then)
+- Add `C:\Program Files\PostgreSQL\10\bin` to `PATH`  (in the same windows as you set the environment variable; call refreshenv again)
+- follow the steps from the Getting started sections, install `diesel` with `cargo install diesel_cli --no-default-features --features postgres`
+- when running `diesel setup`, do not use the singe quotes, it needs to look like e.g. `diesel setup --database-url=postgres://postgres:Password123@localhost/conduit`
