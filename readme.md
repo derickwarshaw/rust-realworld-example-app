@@ -41,4 +41,8 @@ Run `diesel setup --database-url='<DATABASE_URL from conduit.toml>'` script to c
 
 Build with `cargo build`.
 
+Run  with `cargo run`.
+
+To test the requests you can you e.g. [Advanced REST Client](https://advancedrestclient.com/).
+
 API URL: `http://localhost:6767`
