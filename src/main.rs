@@ -109,6 +109,7 @@ struct User {
     image: Option<String>,
 }
 
+#[cfg(feature = "tiberius")]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[allow(non_snake_case)]

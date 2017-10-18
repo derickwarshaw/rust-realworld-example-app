@@ -46,6 +46,7 @@ impl Container<Article> for ArticlesResult {
     }
 }
 
+#[cfg(feature = "tiberius")]
 static ARTICLE_SELECT : &'static str = r#"
   SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
                 (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
@@ -213,6 +214,22 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
     );
 }
 
+#[derive(Debug)]
+pub struct FilterParams<'a> {
+    pub tag: &'a str,
+    pub author: &'a str,
+    pub favorited: &'a str,
+    pub offset : i32,
+    pub limit : i32,
+}
+
+fn get_articles_by_filter(filter:FilterParams) -> Vec<Article> {
+    use schema::articles;
+
+    let connection = establish_connection();
+    articles::table.load(&connection).expect("Error loading articles")
+}
+
 pub fn list_article_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_id) = prepare_parameters(req);
 
@@ -244,6 +261,17 @@ pub fn list_article_handler(req: Request, res: Response, c: Captures) {
             limit = name_value[1].parse::<i32>().unwrap();
         };
     }
+
+    #[cfg(feature = "diesel")]
+    let filter: FilterParams = FilterParams { tag: tag, author: author, favorited: favorited, offset: offset, limit: limit, };
+
+    #[cfg(feature = "diesel")]
+    process_container(
+        res,
+        articles_result,
+        get_articles_by_filter,
+        filter
+    );
 
     #[cfg(feature = "tiberius")]
     process_container(
