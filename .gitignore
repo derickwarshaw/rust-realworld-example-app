@@ -25,3 +25,5 @@ target/**
 .Cargo.toml.swp
 *.*~
 *.env
+.vagrant
+

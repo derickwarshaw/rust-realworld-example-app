@@ -46,3 +46,10 @@ Run  with `cargo run`.
 To test the requests you can you e.g. [Advanced REST Client](https://advancedrestclient.com/).
 
 API URL: `http://localhost:6767`
+
+## Install on Windows
+
+- install [chocolatey](https://chocolatey.org/install)
+- install CMake `choco install cmake` (administrative cmd needed)
+- install Microsoft Visual C++ Build Tools 2015 `choco install vcbuildtools` (administrative cmd needed; not possible if Visual Studio 2015 already installed, in that case but check if C++ is installed: File -> New project -> Visual C++ -> Install Visual C++ 2015 Tools for Windows Desktop)
+- install [Rust](https://www.rust-lang.org/en-US/install.html)
