@@ -43,4 +43,7 @@ This is an application written in [Rust](https://www.rust-lang.org/en-US/index.h
 - install CMake `choco install cmake` (administrative cmd needed)
 - install Microsoft Visual C++ Build Tools 2015 `choco install vcbuildtools` (administrative cmd needed; not possible if Visual Studio 2015 already installed, in that case but check if C++ is installed: File -> New project -> Visual C++ -> Install Visual C++ 2015 Tools for Windows Desktop)
 - install [Rust](https://www.rust-lang.org/en-US/install.html), you are good to go with `stable` (or `nightly`) and `msvc`
-- install [PostgreSQL](https://www.postgresql.org/download/windows/)
+- install [PostgreSQL](https://www.postgresql.org/download/windows/); skip Stack Builder if you do not need to install anything else
+- use pgAdmin 4 from `C:\Program Files\PostgreSQL\10\pgAdmin 4\bin` to connect to the server (username `postgres`, password from the previous step)
+- go to Servers -> PostgreSQL 10 -> Databases and create a new database `conduit`
+- 
