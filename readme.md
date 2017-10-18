@@ -27,29 +27,20 @@ This is an application written in [Rust](https://www.rust-lang.org/en-US/index.h
 
 # Getting started
 
-Install Rust: [https://www.rustup.rs/](https://www.rustup.rs/)
+- Install Rust: [https://www.rustup.rs/](https://www.rustup.rs/)
+- Get [Diesel and Diesel supported database](http://diesel.rs/guides/getting-started/).
+- Create database.
+- Copy `conduit - sample.toml` to `conduit.toml` and set your connection string in `DATABASE_URL` there. 
+- Also use `.env` and run `echo DATABASE_URL=<DATABASE_URL from conduit.toml> > .env`
+- Run `diesel setup --database-url='<DATABASE_URL from conduit.toml>'` script to create the database structure and all the tables, functions etc.
+- Build with `cargo build`.
+- Run  with `cargo run`.
+- API URL: `http://localhost:6767`, to test the requests you can you e.g. [Advanced REST Client](https://advancedrestclient.com/).
 
-Get [Diesel and Diesel supported database](http://diesel.rs/guides/getting-started/).
-
-Create database.
-
-Copy `conduit - sample.toml` to `conduit.toml` and set your connection string in `DATABASE_URL` there. 
-
-Also use `.env` and run `echo DATABASE_URL=<DATABASE_URL from conduit.toml> > .env`
-
-Run `diesel setup --database-url='<DATABASE_URL from conduit.toml>'` script to create the database structure and all the tables, functions etc.
-
-Build with `cargo build`.
-
-Run  with `cargo run`.
-
-To test the requests you can you e.g. [Advanced REST Client](https://advancedrestclient.com/).
-
-API URL: `http://localhost:6767`
-
-## Install on Windows
+## Step by step installation on Windows
 
 - install [chocolatey](https://chocolatey.org/install)
 - install CMake `choco install cmake` (administrative cmd needed)
 - install Microsoft Visual C++ Build Tools 2015 `choco install vcbuildtools` (administrative cmd needed; not possible if Visual Studio 2015 already installed, in that case but check if C++ is installed: File -> New project -> Visual C++ -> Install Visual C++ 2015 Tools for Windows Desktop)
-- install [Rust](https://www.rust-lang.org/en-US/install.html)
+- install [Rust](https://www.rust-lang.org/en-US/install.html), you are good to go with `stable` (or `nightly`) and `msvc`
+- install [PostgreSQL](https://www.postgresql.org/download/windows/)
