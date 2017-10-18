@@ -166,9 +166,9 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
             username: user_name,
         };
         let connection = establish_connection();
-        diesel::insert(&new_user).into(users::table)
+        let user : User = diesel::insert(&new_user).into(users::table)
             .get_result(&connection)
-            .expect("Error saving new post")        
+            .expect("Error saving new post");
     }
 }
 

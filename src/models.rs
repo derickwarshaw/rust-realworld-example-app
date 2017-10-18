@@ -2,11 +2,12 @@
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 pub struct User {
+    pub id: i32,
     pub email: String,
     pub token: String,
     pub username: String,
-    pub bio: String,
-    pub image: String,
+    pub bio: Option<String>,
+    pub image: Option<String>,
 }
 
 use super::schema::users;
