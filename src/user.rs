@@ -135,6 +135,17 @@ static PROFILE_SELECT : &'static str = r#"SELECT [Email],[Token],[UserName],[Bio
 ( SELECT COUNT(*) FROM dbo.Followings F WHERE F.[FollowingId] = Id AND F.FollowerId = @logged ) as Following
 FROM [dbo].[Users]  WHERE [UserName] = @username"#;
 
+#[cfg(feature = "diesel")]
+pub fn create_user<'a>(new_user: NewUser) -> Option<User> {
+    use schema::users;
+
+    let connection = establish_connection();
+    let user : User = diesel::insert(&new_user).into(users::table)
+        .get_result(&connection)
+        .expect("Error saving new post");
+    Some(user)
+}
+
 pub fn registration_handler(req: Request, res: Response, _: Captures) {
     let (body, _) = prepare_parameters(req);
 
@@ -159,16 +170,12 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
                 &[&email, &token, &user_name]);
     }
     #[cfg(feature = "diesel")] {
-        use schema::users;
         let new_user = NewUser {
             email: email,
             token: token,
             username: user_name,
         };
-        let connection = establish_connection();
-        let user : User = diesel::insert(&new_user).into(users::table)
-            .get_result(&connection)
-            .expect("Error saving new post");
+        process( res, create_user, new_user );
     }
 }
 

@@ -14,6 +14,7 @@ use super::schema::users;
 
 #[derive(Insertable)]
 #[table_name="users"]
+#[derive(Debug)]
 pub struct NewUser<'a> {
     pub email: &'a str,
     pub token: &'a str,

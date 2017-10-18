@@ -434,6 +434,36 @@ fn process<'a, T>(mut res: Response,
     }
 }
 
+#[cfg(feature = "diesel")]
+fn process<'a, T, U>(
+    mut res: Response,
+    process_params: fn(U) -> Option<T>,
+    params : U,
+)
+    where T: serde::Serialize, U: std::fmt::Debug
+{
+    println!("process entered with params {:?}.", params);
+
+    let result: Option<T> = process_params(params);
+
+    res.headers_mut().set(AccessControlAllowOrigin::Any);
+    res.headers_mut()
+        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
+                                            UniCase("authorization".to_owned())]));
+    res.headers_mut()
+        .set(ContentType(Mime(TopLevel::Application,
+                              SubLevel::Json,
+                              vec![(Attr::Charset, Value::Utf8)])));
+
+    if result.is_some() {
+        let result = result.unwrap();
+        let result = serde_json::to_string(&result).unwrap();
+        println!("Sending '{:?}'", result.to_owned());
+        let result: &[u8] = result.as_bytes();
+        res.send(&result).unwrap();
+    }
+}
+
 #[cfg(feature = "tiberius")]
 fn process_container<'a, T, U>(mut res: Response,
                                sql_command: &'static str,
