@@ -158,6 +158,18 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
                 get_user_from_row_simple,
                 &[&email, &token, &user_name]);
     }
+    #[cfg(feature = "diesel")] {
+        use schema::users;
+        let new_user = NewUser {
+            email: email,
+            token: token,
+            username: user_name,
+        };
+        let connection = establish_connection();
+        diesel::insert(&new_user).into(users::table)
+            .get_result(&connection)
+            .expect("Error saving new post")        
+    }
 }
 
 pub fn update_user_handler(req: Request, res: Response, _: Captures) {

@@ -381,6 +381,16 @@ use unicase::UniCase;
 use hyper::header::ContentType;
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 
+#[cfg(feature = "diesel")]
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url)
+        .expect(&format!("Error connecting to {}", database_url))
+}
+
 #[cfg(feature = "tiberius")]
 fn process<'a, T>(mut res: Response,
                   sql_command: &'static str,
