@@ -508,6 +508,35 @@ fn process_container<'a, T, U>(mut res: Response,
     res.send(&result).unwrap();
 }
 
+#[cfg(feature = "diesel")]
+fn process_container<'a, T, U, V>(
+    mut res: Response,
+    _fix_u: fn(result: U),
+    process_params: fn(V) -> Vec<T>,
+    params : V,
+)
+    where T: serde::Serialize,
+          U: Container<T>,
+          U: serde::Serialize,
+          V: std::fmt::Debug,
+{
+    let mut items: Vec<T> = process_params(params);
+
+    res.headers_mut().set(AccessControlAllowOrigin::Any);
+    res.headers_mut()
+        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
+                                            UniCase("authorization".to_owned())]));
+    res.headers_mut()
+        .set(ContentType(Mime(TopLevel::Application,
+                              SubLevel::Json,
+                              vec![(Attr::Charset, Value::Utf8)])));
+
+    let result = U::create_new_with_items(items);
+    let result = serde_json::to_string(&result).unwrap();
+    let result: &[u8] = result.as_bytes();
+    res.send(&result).unwrap();
+}
+
 mod user;
 use user::*;
 
