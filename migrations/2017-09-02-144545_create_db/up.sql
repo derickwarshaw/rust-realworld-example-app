@@ -44,8 +44,8 @@ CREATE TABLE public.Articles (
                 Title VARCHAR(250) NOT NULL,
                 Description VARCHAR(250) NOT NULL,
                 Body text NOT NULL,
-                Created TIMESTAMP NOT NULL,
-                Updated TIMESTAMP,
+                CreatedAt TIMESTAMP NOT NULL,
+                UpdatedAt TIMESTAMP,
                 Author INTEGER NOT NULL
 );
 

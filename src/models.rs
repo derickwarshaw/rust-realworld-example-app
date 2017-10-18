@@ -35,7 +35,7 @@ pub struct Article {
     pub title: String,
     pub description: String,
     pub body: String,
-    pub created: NaiveDateTime,
-    pub updated: Option<NaiveDateTime>,
+    pub createdAt: NaiveDateTime,
+    pub updatedAt: Option<NaiveDateTime>,
     pub author: i32,
 }
