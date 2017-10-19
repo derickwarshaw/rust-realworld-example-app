@@ -230,6 +230,20 @@ pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
             USER_SELECT,
             get_user_from_row_simple,
             &[&logged_in_user_id]);
+    #[cfg(feature = "diesel")]
+    process(
+        res,
+        (|x| {
+            use schema::users::dsl::*;
+
+            let connection = establish_connection();
+            let user : User = users.find(x)
+                .first(&connection)
+                .unwrap();
+            Some(UserResult{ user: user })
+        }),
+        logged_in_user_id,
+    );
 }
 
 pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
