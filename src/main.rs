@@ -74,7 +74,6 @@ use std::path::PathBuf;
 use hyper::server::{Server, Request, Response};
 use reroute::{RouterBuilder, Captures};
 use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders};
-use hyper::status::StatusCode;
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -109,11 +108,10 @@ struct User {
     image: Option<String>,
 }
 
-#[cfg(feature = "tiberius")]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[allow(non_snake_case)]
-struct Article {
+struct ArticleDTO {
     slug: String,
     title: String,
     description: String,
@@ -270,7 +268,7 @@ struct CreateArticle {
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 struct CreateArticleResult {
-    article: Article,
+    article: ArticleDTO,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -582,6 +580,8 @@ fn hello_handler(_: Request, res: Response, _: Captures) {
 
 #[cfg(feature = "tiberius")]
 fn create_db_handler(mut req: Request, mut res: Response, _: Captures) {
+    use hyper::status::StatusCode;
+    
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);
     if body == CREATE_DATABASE_SECRET.as_str() {
