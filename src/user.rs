@@ -136,14 +136,14 @@ static PROFILE_SELECT : &'static str = r#"SELECT [Email],[Token],[UserName],[Bio
 FROM [dbo].[Users]  WHERE [UserName] = @username"#;
 
 #[cfg(feature = "diesel")]
-pub fn create_user<'a>(new_user: NewUser) -> Option<User> {
+pub fn create_user<'a>(new_user: NewUser) -> Option<UserResult> {
     use schema::users;
 
     let connection = establish_connection();
     let user : User = diesel::insert(&new_user).into(users::table)
         .get_result(&connection)
         .expect("Error saving new post");
-    Some(user)
+    Some(UserResult { user: user } )
 }
 
 pub fn registration_handler(req: Request, res: Response, _: Captures) {
