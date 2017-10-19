@@ -285,14 +285,56 @@ pub fn authentication_handler(mut req: Request, mut res: Response, _: Captures) 
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);
     let login: Login = serde_json::from_str(&body).unwrap();
-
+    let user_email: &str = &login.user.email;
+    
     let mut result: Option<UserResult> = None;
+    #[cfg(feature = "diesel")]
+    {
+        use schema::users::dsl::*;
+
+        let connection = establish_connection();
+        let user : User = users.filter(email.eq(user_email))
+            .first(&connection)
+            .unwrap();
+        let stored_hash : &str = &user.token.to_owned();
+        let user_id = user.id;
+        let authenticated_user = crypto::pbkdf2::pbkdf2_check( &login.user.password, &stored_hash );
+        result = Some(UserResult{ user: user });
+
+        match authenticated_user {
+            Ok(valid) => {
+                if valid {                     
+                    let token2 = new_token(user_id.to_string().as_ref(), &login.user.password).unwrap();
+
+                    res.headers_mut().set(
+                        Authorization(
+                            Bearer {
+                                token: token2.to_owned()
+                            }
+                        )
+                    );
+                    res.headers_mut().set(
+                        AccessControlAllowOrigin::Any
+                    );
+                    res.headers_mut().set(
+                        AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()), UniCase("authorization".to_owned())])
+                    );                            
+                    res.headers_mut().set(
+                        ContentType(Mime(TopLevel::Application, SubLevel::Json,
+                                    vec![(Attr::Charset, Value::Utf8)]))
+                    );  
+
+                    *res.status_mut() = StatusCode::Ok;
+                }
+            }
+            _ => { result = None; }
+        }                   
+    }
     #[cfg(feature = "tiberius")]
     {
-        let mut sql = Core::new().unwrap();
-        let email: &str = &login.user.email;
+        let mut sql = Core::new().unwrap();        
         let get_user_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str() )
-            .and_then(|conn| conn.query( "SELECT TOP 1 [Email],[Token],[UserName],[Bio],[Image], Id FROM [dbo].[Users] WHERE [Email] = @P1", &[&email] )
+            .and_then(|conn| conn.query( "SELECT TOP 1 [Email],[Token],[UserName],[Bio],[Image], Id FROM [dbo].[Users] WHERE [Email] = @P1", &[&user_email] )
             .for_each_row(|row| {
                 let (user_id,stored_hash,result2) = get_user_from_row(row);
                 let authenticated_user = crypto::pbkdf2::pbkdf2_check( &login.user.password, &stored_hash);
