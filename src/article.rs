@@ -125,6 +125,7 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
+
 fn process_and_return_article(name: &str,
                               req: Request,
                               res: Response,
@@ -303,7 +304,25 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
     );
 }
 
+fn get_article(url_slug: String) -> Option<Vec<Article>> {
+    use schema::articles::dsl::*;
+    let connection = establish_connection();
+
+    let articlesVec : Vec<Article> = articles.filter(slug.eq(url_slug))
+        .load(&connection)
+        .unwrap();
+    Some(articlesVec)
+}
+
 pub fn get_article_handler(req: Request, res: Response, c: Captures) {
+    let (_, logged_in_user_id) = prepare_parameters(req);
+    let caps = c.unwrap();
+    let url_slug = &caps[0].replace("/api/articles/", "");
+
+    #[cfg(feature = "diesel")]
+    process( res, get_article, (url_slug.to_owned()) );
+
+    #[cfg(feature = "tiberius")]
     process_and_return_article("get_article_handler",
                                req,
                                res,
@@ -493,7 +512,8 @@ fn get_article_test() {
     let client = Client::new();
 
     let (_, slug, user_name) = login_create_article(false);
-    let url = format!("http://localhost:6767/api/articles/{}", slug);
+    //let slug = "dragons";
+    let url = format!("http://localhost:6767/api/articles/{}", "dragons");
 
     let mut res = client.get(&url).send().unwrap();
     let mut buffer = String::new();
