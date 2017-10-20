@@ -27,3 +27,4 @@ target/**
 *.env
 .vagrant
 
+src/.vscode/tasks.json

@@ -29,6 +29,7 @@ pub struct NewUser<'a> {
 #[derive(Queryable)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
+#[allow(non_snake_case)]
 pub struct Article {
     pub id: i32,
     pub slug: String,
