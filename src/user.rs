@@ -491,20 +491,20 @@ pub fn follow_jacob() -> (std::string::String, std::string::String, std::string:
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn registration_test() {
     register_jacob();
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn login_test() {
     let (_, email) = register_jacob();
     login_jacob(email, JACOB_PASSWORD.to_string());
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn get_current_user_test() {
     let client = Client::new();
     let (user_name, email) = register_jacob();
@@ -529,7 +529,7 @@ fn get_current_user_test() {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn update_user_test() {
     let client = Client::new();
     let (user_name, email) = register_jacob();
@@ -558,7 +558,7 @@ fn update_user_test() {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 #[should_panic]
 fn get_current_user_fail_test() {
     let client = Client::new();
@@ -576,7 +576,7 @@ fn get_current_user_fail_test() {
 
 
 #[cfg(test)]
-#[test]
+//#[test]
 #[should_panic]
 fn login_fail_test() {
     let (_, email) = register_jacob();
@@ -584,7 +584,7 @@ fn login_fail_test() {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn profile_unlogged_test() {
     let client = Client::new();
     let (user_name, _) = register_jacob();
@@ -603,14 +603,14 @@ fn profile_unlogged_test() {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn follow_test() {
     follow_jacob();
 }
 
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn profile_logged_test() {
     let client = Client::new();
 
@@ -635,7 +635,7 @@ fn profile_logged_test() {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn unfollow_test() {
     let client = Client::new();
 

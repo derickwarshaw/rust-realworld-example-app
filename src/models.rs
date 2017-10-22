@@ -15,6 +15,7 @@ pub struct User {
     pub username: String,
     pub bio: Option<String>,
     pub image: Option<String>,
+    //pub following: Option<bool>
 }
 
 #[derive(Insertable)]
@@ -24,6 +25,36 @@ pub struct NewUser<'a> {
     pub email: &'a str,
     pub token: &'a str,
     pub username: &'a str,
+}
+
+#[derive(Insertable)]
+#[table_name="articles"]
+#[derive(Debug)]
+pub struct NewArticle<'a> {
+    pub title: &'a str,
+    pub slug: &'a str,
+    pub description: &'a str,
+    pub body: &'a str,
+    pub author: i32,
+    pub createdat: NaiveDateTime,
+    pub updatedat: Option<NaiveDateTime>,
+    //pub tagList: &'a Vec<str>,
+}
+
+#[derive(Queryable)]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+pub struct IncomingArticle {
+    pub title: String,
+    pub description: String,
+    pub body: String,
+    //pub tagList: Vec<str>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ArticleContainer {
+    pub article: IncomingArticle,
 }
 
 #[derive(Queryable)]
@@ -39,4 +70,7 @@ pub struct Article {
     pub createdAt: NaiveDateTime,
     pub updatedAt: Option<NaiveDateTime>,
     pub author: i32,
+    // pub favorited: bool,
+    // pub favoritesCount: i32,
+    // pub tagList: Vec<String>,
 }

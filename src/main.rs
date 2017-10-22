@@ -558,7 +558,7 @@ fn handle_row_none(_: tiberius::query::QueryRow) -> Option<i32> {
 }
 
 #[cfg(test)]
-#[test]
+//#[test]
 fn get_tags_test() {
     let client = Client::new();
 
