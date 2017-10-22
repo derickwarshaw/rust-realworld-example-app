@@ -65,7 +65,9 @@ fn get_simple_comment_from_row(row: tiberius::query::QueryRow) -> Option<Comment
 
 #[cfg(feature = "tiberius")]
 fn get_comment_from_row(row: tiberius::query::QueryRow) -> Option<CommentResult> {
-    let result = Some(CommentResult { comment: get_simple_comment_from_row(row).unwrap() });
+    let result = Some(CommentResult {
+        comment: get_simple_comment_from_row(row).unwrap(),
+    });
     result
 }
 
@@ -77,9 +79,10 @@ pub fn add_comment_handler(req: Request, res: Response, c: Captures) {
     println!("comment_body: {}", comment_body);
 
     let caps = c.unwrap();
-    let slug = &caps[0]
-                    .replace("/api/articles/", "")
-                    .replace("/comments", "");
+    let slug = &caps[0].replace("/api/articles/", "").replace(
+        "/comments",
+        "",
+    );
     println!("add_comment_handler slug: '{}'", slug);
 
     #[cfg(feature = "tiberius")]
@@ -107,12 +110,14 @@ pub fn delete_comment_handler(req: Request, res: Response, c: Captures) {
     println!("id: {}", id);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            r#"DELETE TOP(1) FROM Comments WHERE Id = @P1 AND Author=@P2;
+    process(
+        res,
+        r#"DELETE TOP(1) FROM Comments WHERE Id = @P1 AND Author=@P2;
         "#,
-            "SELECT 1",
-            handle_row_none,
-            &[&id, &logged_id]);
+        "SELECT 1",
+        handle_row_none,
+        &[&id, &logged_id],
+    );
 
     return;
 }
@@ -123,9 +128,10 @@ pub fn get_comments_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
-    let slug = &caps[0]
-                    .replace("/api/articles/", "")
-                    .replace("/comments", "");
+    let slug = &caps[0].replace("/api/articles/", "").replace(
+        "/comments",
+        "",
+    );
     println!("get_comments_handler slug: '{}'", slug);
 
     #[cfg(feature = "tiberius")]
@@ -154,9 +160,11 @@ fn add_comment_test() {
     let (jwt, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}/comments", slug);
 
-    let comment_body = format!("His name was my name too {}-{}.",
-                               since_the_epoch(),
-                               rand::thread_rng().gen_range(0, 1000));
+    let comment_body = format!(
+        "His name was my name too {}-{}.",
+        since_the_epoch(),
+        rand::thread_rng().gen_range(0, 1000)
+    );
     let body = format!(r#"{{"comment": {{"body": "{}" }}}}"#, comment_body);
 
     let mut res = client
@@ -210,9 +218,11 @@ fn delete_comment_test() {
     let comment_result: CommentResult = serde_json::from_str(&buffer).unwrap();
     println!("Comment result:{:?}", comment_result);
 
-    let url2 = format!("http://localhost:6767/api/articles/{}/comments/{}",
-                       slug,
-                       comment_result.comment.id);
+    let url2 = format!(
+        "http://localhost:6767/api/articles/{}/comments/{}",
+        slug,
+        comment_result.comment.id
+    );
 
     let mut res = client
         .delete(&url2)

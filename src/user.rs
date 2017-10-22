@@ -90,14 +90,14 @@ fn get_user_from_row(row: tiberius::query::QueryRow) -> (i32, String, Option<Use
     let image: Option<&str> = row.get(4);
     let user_id: i32 = row.get(5);
     let result = Some(UserResult {
-                          user: User {
-                              email: email.to_string(),
-                              token: token.to_string(),
-                              bio: bio.map(|s| s.to_string()),
-                              image: image.map(|s| s.to_string()),
-                              username: user_name.to_string(),
-                          },
-                      });
+        user: User {
+            email: email.to_string(),
+            token: token.to_string(),
+            bio: bio.map(|s| s.to_string()),
+            image: image.map(|s| s.to_string()),
+            username: user_name.to_string(),
+        },
+    });
     (user_id, token.to_string(), result)
 }
 
@@ -117,13 +117,13 @@ fn get_profile_from_row(row: tiberius::query::QueryRow) -> Option<ProfileResult>
     let f: i32 = row.get(5);
     let following: bool = f == 1;
     let result = Some(ProfileResult {
-                          profile: Profile {
-                              following: following,
-                              bio: bio.map(|s| s.to_string()),
-                              image: image.map(|s| s.to_string()),
-                              username: user_name.to_string(),
-                          },
-                      });
+        profile: Profile {
+            following: following,
+            bio: bio.map(|s| s.to_string()),
+            image: image.map(|s| s.to_string()),
+            username: user_name.to_string(),
+        },
+    });
     result
 }
 
@@ -140,10 +140,11 @@ pub fn create_user<'a>(new_user: NewUser) -> Option<UserResult> {
     use schema::users;
 
     let connection = establish_connection();
-    let user : User = diesel::insert(&new_user).into(users::table)
+    let user: User = diesel::insert(&new_user)
+        .into(users::table)
         .get_result(&connection)
         .expect("Error saving new user");
-    Some(UserResult { user: user } )
+    Some(UserResult { user: user })
 }
 
 pub fn registration_handler(req: Request, res: Response, _: Captures) {
@@ -155,9 +156,11 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
     let token: &str = &crypto::pbkdf2::pbkdf2_simple(&user.password, 10000).unwrap();
     let user_name: &str = &user.username;
 
-    #[cfg(feature = "tiberius")] {
-        process(res,
-                r#"INSERT INTO [dbo].[Users]
+    #[cfg(feature = "tiberius")]
+    {
+        process(
+            res,
+            r#"INSERT INTO [dbo].[Users]
                     ([Email]
                     ,[Token]
                     ,[UserName])
@@ -165,17 +168,19 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
                     (@P1
                     ,@P2
                     ,@P3); DECLARE @id int = SCOPE_IDENTITY();"#,
-                USER_SELECT,
-                get_user_from_row_simple,
-                &[&email, &token, &user_name]);
+            USER_SELECT,
+            get_user_from_row_simple,
+            &[&email, &token, &user_name],
+        );
     }
-    #[cfg(feature = "diesel")] {
+    #[cfg(feature = "diesel")]
+    {
         let new_user = NewUser {
             email: email,
             token: token,
             username: user_name,
         };
-        process( res, create_user, new_user );
+        process(res, create_user, new_user);
     }
 }
 
@@ -183,26 +188,21 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     let (body, logged_in_user_id) = prepare_parameters(req);
 
     let update_user: UpdateUser = serde_json::from_str(&body).unwrap();
-    let user_name: &str = &update_user
-                               .user
-                               .username
-                               .as_ref()
-                               .map(|x| &**x)
-                               .unwrap_or("");
+    let user_name: &str = &update_user.user.username.as_ref().map(|x| &**x).unwrap_or(
+        "",
+    );
     let bio: &str = update_user.user.bio.as_ref().map(|x| &**x).unwrap_or("");
     let image: &str = update_user.user.image.as_ref().map(|x| &**x).unwrap_or("");
     let email: &str = &update_user.user.email.as_ref().map(|x| &**x).unwrap_or("");
-    let password: &str = &update_user
-                              .user
-                              .password
-                              .as_ref()
-                              .map(|x| &**x)
-                              .unwrap_or("");
+    let password: &str = &update_user.user.password.as_ref().map(|x| &**x).unwrap_or(
+        "",
+    );
     let token: &str = &crypto::pbkdf2::pbkdf2_simple(password, 10000).unwrap();
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            r#"  UPDATE [dbo].[Users] SET 
+    process(
+        res,
+        r#"  UPDATE [dbo].[Users] SET 
                                 [UserName]=CASE WHEN(LEN(@P2)=0) THEN UserName ELSE @P2 END,
                                 [Bio]=CASE WHEN(LEN(@P3)=0) THEN Bio ELSE @P3 END,
                                 [Image]=CASE WHEN(LEN(@P4)=0) THEN Image ELSE @P4 END,
@@ -210,38 +210,41 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
                                 [Token]=CASE WHEN(LEN(@P7)=0) THEN Token ELSE @P6 END
                                 WHERE [Id] = @P1; DECLARE @id int = @P1;
                             "#,
-            USER_SELECT,
-            get_user_from_row_simple,
-            &[&logged_in_user_id,
-              &user_name,
-              &bio,
-              &image,
-              &email,
-              &token,
-              &password]);
+        USER_SELECT,
+        get_user_from_row_simple,
+        &[
+            &logged_in_user_id,
+            &user_name,
+            &bio,
+            &image,
+            &email,
+            &token,
+            &password,
+        ],
+    );
 }
 
 pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            r#"DECLARE @id int = @P1;"#,
-            USER_SELECT,
-            get_user_from_row_simple,
-            &[&logged_in_user_id]);
+    process(
+        res,
+        r#"DECLARE @id int = @P1;"#,
+        USER_SELECT,
+        get_user_from_row_simple,
+        &[&logged_in_user_id],
+    );
     #[cfg(feature = "diesel")]
     process(
         res,
         (|x| {
-            use schema::users::dsl::*;
+             use schema::users::dsl::*;
 
-            let connection = establish_connection();
-            let user : User = users.find(x)
-                .first(&connection)
-                .unwrap();
-            Some(UserResult{ user: user })
-        }),
+             let connection = establish_connection();
+             let user: User = users.find(x).first(&connection).unwrap();
+             Some(UserResult { user: user })
+         }),
         logged_in_user_id,
     );
 }
@@ -254,11 +257,13 @@ pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
     println!("profile: {}", profile);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;"#,
-            PROFILE_SELECT,
-            get_profile_from_row,
-            &[&(profile.as_str()), &logged_in_user_id]);
+    process(
+        res,
+        r#"DECLARE @username nvarchar(max) = @P1;DECLARE @logged int = @P2;"#,
+        PROFILE_SELECT,
+        get_profile_from_row,
+        &[&(profile.as_str()), &logged_in_user_id],
+    );
 }
 
 pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
@@ -300,53 +305,53 @@ pub fn authentication_handler(mut req: Request, mut res: Response, _: Captures) 
     let _ = req.read_to_string(&mut body);
     let login: Login = serde_json::from_str(&body).unwrap();
     let user_email: &str = &login.user.email;
-    
+
     let mut result: Option<UserResult> = None;
     #[cfg(feature = "diesel")]
     {
         use schema::users::dsl::*;
 
         let connection = establish_connection();
-        let user : User = users.filter(email.eq(user_email))
+        let user: User = users
+            .filter(email.eq(user_email))
             .first(&connection)
             .unwrap();
-        let stored_hash : &str = &user.token.to_owned();
+        let stored_hash: &str = &user.token.to_owned();
         let user_id = user.id;
-        let authenticated_user = crypto::pbkdf2::pbkdf2_check( &login.user.password, &stored_hash );
-        result = Some(UserResult{ user: user });
+        let authenticated_user = crypto::pbkdf2::pbkdf2_check(&login.user.password, &stored_hash);
+        result = Some(UserResult { user: user });
 
         match authenticated_user {
             Ok(valid) => {
-                if valid {                     
-                    let token2 = new_token(user_id.to_string().as_ref(), &login.user.password).unwrap();
+                if valid {
+                    let token2 = new_token(user_id.to_string().as_ref(), &login.user.password)
+                        .unwrap();
 
-                    res.headers_mut().set(
-                        Authorization(
-                            Bearer {
-                                token: token2.to_owned()
-                            }
-                        )
-                    );
-                    res.headers_mut().set(
-                        AccessControlAllowOrigin::Any
-                    );
-                    res.headers_mut().set(
-                        AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()), UniCase("authorization".to_owned())])
-                    );                            
-                    res.headers_mut().set(
-                        ContentType(Mime(TopLevel::Application, SubLevel::Json,
-                                    vec![(Attr::Charset, Value::Utf8)]))
-                    );  
+                    res.headers_mut().set(Authorization(
+                        Bearer { token: token2.to_owned() },
+                    ));
+                    res.headers_mut().set(AccessControlAllowOrigin::Any);
+                    res.headers_mut().set(AccessControlAllowHeaders(vec![
+                        UniCase("content-type".to_owned()),
+                        UniCase("authorization".to_owned()),
+                    ]));
+                    res.headers_mut().set(ContentType(Mime(
+                        TopLevel::Application,
+                        SubLevel::Json,
+                        vec![(Attr::Charset, Value::Utf8)],
+                    )));
 
                     *res.status_mut() = StatusCode::Ok;
                 }
             }
-            _ => { result = None; }
-        }                   
+            _ => {
+                result = None;
+            }
+        }
     }
     #[cfg(feature = "tiberius")]
     {
-        let mut sql = Core::new().unwrap();        
+        let mut sql = Core::new().unwrap();
         let get_user_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str() )
             .and_then(|conn| conn.query( "SELECT TOP 1 [Email],[Token],[UserName],[Bio],[Image], Id FROM [dbo].[Users] WHERE [Email] = @P1", &[&user_email] )
             .for_each_row(|row| {
@@ -414,10 +419,12 @@ pub fn register_jacob() -> (std::string::String, std::string::String) {
     let num = rand::thread_rng().gen_range(0, 1000);
     let user_name = format!("Jacob-{}-{}", since, num);
     let email = format!("jake-{}-{}@jake.jake", since, num);
-    let body = format!(r#"{{"user":{{"username": "{}","email": "{}","password": "{}"}}}}"#,
-                       user_name,
-                       email,
-                       JACOB_PASSWORD);
+    let body = format!(
+        r#"{{"user":{{"username": "{}","email": "{}","password": "{}"}}}}"#,
+        user_name,
+        email,
+        JACOB_PASSWORD
+    );
 
     let mut res = client
         .post("http://localhost:6767/api/users")
@@ -441,9 +448,11 @@ pub fn register_jacob() -> (std::string::String, std::string::String) {
 pub fn login_jacob(email: std::string::String, password: String) -> std::string::String {
     let client = Client::new();
 
-    let body = format!(r#"{{"user":{{"email": "{}","password": "{}"}}}}"#,
-                       email,
-                       password);
+    let body = format!(
+        r#"{{"user":{{"email": "{}","password": "{}"}}}}"#,
+        email,
+        password
+    );
 
     let mut res = client
         .post("http://localhost:6767/api/users/login")
@@ -537,8 +546,10 @@ fn update_user_test() {
 
     let url = format!("http://localhost:6767/api/user");
     let new_user_name = user_name.to_owned() + "_CH";
-    let body = format!(r#"{{"user": {{ "username":"{}"}}}}"#,
-                       new_user_name.to_owned());
+    let body = format!(
+        r#"{{"user": {{ "username":"{}"}}}}"#,
+        new_user_name.to_owned()
+    );
 
     let mut res = client
         .put(&url)

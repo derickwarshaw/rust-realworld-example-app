@@ -19,7 +19,7 @@ pub struct User {
 }
 
 #[derive(Insertable)]
-#[table_name="users"]
+#[table_name = "users"]
 #[derive(Debug)]
 pub struct NewUser<'a> {
     pub email: &'a str,
@@ -28,7 +28,7 @@ pub struct NewUser<'a> {
 }
 
 #[derive(Insertable)]
-#[table_name="articles"]
+#[table_name = "articles"]
 #[derive(Debug)]
 pub struct NewArticle<'a> {
     pub title: &'a str,

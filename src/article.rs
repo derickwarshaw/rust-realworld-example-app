@@ -98,7 +98,9 @@ fn get_simple_article_from_row(row: tiberius::query::QueryRow) -> Option<Article
 
 #[cfg(feature = "tiberius")]
 fn get_article_from_row(row: tiberius::query::QueryRow) -> Option<CreateArticleResult> {
-    Some(CreateArticleResult { article: get_simple_article_from_row(row).unwrap() })
+    Some(CreateArticleResult {
+        article: get_simple_article_from_row(row).unwrap(),
+    })
 }
 
 #[cfg(feature = "diesel")]
@@ -106,7 +108,8 @@ pub fn create_article<'a>(new_article: NewArticle) -> Option<Article> {
     use schema::articles;
 
     let connection = establish_connection();
-    let article : Article = diesel::insert(&new_article).into(articles::table)
+    let article: Article = diesel::insert(&new_article)
+        .into(articles::table)
         .get_result(&connection)
         .expect("Error saving new post");
     Some(article)
@@ -125,7 +128,8 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let slug: &str = &slugify(title);
     // let tags: &str = &tag_list.join(",");
 
-    #[cfg(feature = "diesel")] {
+    #[cfg(feature = "diesel")]
+    {
         use chrono::prelude::*;
         let utc: DateTime<Utc> = Utc::now();
 
@@ -138,7 +142,7 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
             updatedat: None,
             author: logged_in_user_id,
         };
-        process( res, create_article, new_article );
+        process(res, create_article, new_article);
     }
 
     #[cfg(feature = "tiberius")]
@@ -156,49 +160,58 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
 }
 
 
-fn process_and_return_article(name: &str,
-                              req: Request,
-                              res: Response,
-                              c: Captures,
-                              sql_command: &'static str) {
+fn process_and_return_article(
+    name: &str,
+    req: Request,
+    res: Response,
+    c: Captures,
+    sql_command: &'static str,
+) {
     let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
-    let slug = &caps[0]
-                    .replace("/api/articles/", "")
-                    .replace("/favorite", "");
+    let slug = &caps[0].replace("/api/articles/", "").replace(
+        "/favorite",
+        "",
+    );
     println!("{} slug: '{}'", name, slug);
     println!("logged_id: {}", logged_id);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            sql_command,
-            ARTICLE_SELECT,
-            get_article_from_row,
-            &[&(slug.as_str()), &(logged_id)]);
+    process(
+        res,
+        sql_command,
+        ARTICLE_SELECT,
+        get_article_from_row,
+        &[&(slug.as_str()), &(logged_id)],
+    );
 }
 
 pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
-    process_and_return_article("favorite_article_handler",
-                               req,
-                               res,
-                               c,
-                               "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; DECLARE @logged int = @P2;
+    process_and_return_article(
+        "favorite_article_handler",
+        req,
+        res,
+        c,
+        "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; DECLARE @logged int = @P2;
                 INSERT INTO [dbo].[FavoritedArticles]
 	            ([ArticleId],
 	            [UserId])
-	            VALUES (@id,@P2)");
+	            VALUES (@id,@P2)",
+    );
 }
 
 pub fn unfavorite_article_handler(req: Request, res: Response, c: Captures) {
-    process_and_return_article("unfavorite_article_handler",
-                               req,
-                               res,
-                               c,
-                               "declare @id int; DECLARE @logged int = @P2;
+    process_and_return_article(
+        "unfavorite_article_handler",
+        req,
+        res,
+        c,
+        "declare @id int; DECLARE @logged int = @P2;
                 select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1;
                 DELETE TOP(1) FROM FavoritedArticles WHERE ArticleId = @id AND UserId = @P2;
-                ");
+                ",
+    );
 }
 
 fn articles_result(_: ArticlesResult) {}
@@ -250,15 +263,17 @@ pub struct FilterParams<'a> {
     pub tag: &'a str,
     pub author: &'a str,
     pub favorited: &'a str,
-    pub offset : i32,
-    pub limit : i32,
+    pub offset: i32,
+    pub limit: i32,
 }
 
-fn get_articles_by_filter(filter:FilterParams) -> Vec<Article> {
+fn get_articles_by_filter(filter: FilterParams) -> Vec<Article> {
     use schema::articles;
 
     let connection = establish_connection();
-    articles::table.load(&connection).expect("Error loading articles")
+    articles::table.load(&connection).expect(
+        "Error loading articles",
+    )
 }
 
 pub fn list_article_handler(req: Request, res: Response, c: Captures) {
@@ -294,15 +309,16 @@ pub fn list_article_handler(req: Request, res: Response, c: Captures) {
     }
 
     #[cfg(feature = "diesel")]
-    let filter: FilterParams = FilterParams { tag: tag, author: author, favorited: favorited, offset: offset, limit: limit, };
+    let filter: FilterParams = FilterParams {
+        tag: tag,
+        author: author,
+        favorited: favorited,
+        offset: offset,
+        limit: limit,
+    };
 
     #[cfg(feature = "diesel")]
-    process_container(
-        res,
-        articles_result,
-        get_articles_by_filter,
-        filter
-    );
+    process_container(res, articles_result, get_articles_by_filter, filter);
 
     #[cfg(feature = "tiberius")]
     process_container(
@@ -338,7 +354,8 @@ fn get_article(url_slug: String) -> Option<Vec<Article>> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    let articlesVec : Vec<Article> = articles.filter(slug.eq(url_slug))
+    let articlesVec: Vec<Article> = articles
+        .filter(slug.eq(url_slug))
         .load(&connection)
         .unwrap();
     Some(articlesVec)
@@ -349,16 +366,17 @@ pub fn get_article_handler(req: Request, res: Response, c: Captures) {
     let caps = c.unwrap();
     let url_slug = &caps[0].replace("/api/articles/", "");
 
-    #[cfg(feature = "diesel")]
-    process( res, get_article, (url_slug.to_owned()) );
+    #[cfg(feature = "diesel")] process(res, get_article, (url_slug.to_owned()));
 
     #[cfg(feature = "tiberius")]
-    process_and_return_article("get_article_handler",
-                               req,
-                               res,
-                               c,
-                               "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; 
-        DECLARE @logged int = @P2;");
+    process_and_return_article(
+        "get_article_handler",
+        req,
+        res,
+        c,
+        "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 ORDER BY 1; 
+        DECLARE @logged int = @P2;",
+    );
 }
 
 pub fn update_article_handler(req: Request, res: Response, c: Captures) {
@@ -390,8 +408,9 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
     let new_slug: &str = &slugify(title);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            r#"
+    process(
+        res,
+        r#"
         declare @id int; select TOP(1) @id = id from Articles where Slug = @P1; 
         DECLARE @logged int = @P5;
         UPDATE TOP(1) [dbo].[Articles] SET 
@@ -401,14 +420,17 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
         [Slug]=CASE WHEN(LEN(@P2)=0) THEN [Slug] ELSE @P6 END
         WHERE [Id] = @id AND Author = @logged; 
         "#,
-            ARTICLE_SELECT,
-            get_article_from_row,
-            &[&(slug.as_str()),
-              &title,
-              &description,
-              &body,
-              &logged_id,
-              &new_slug]);
+        ARTICLE_SELECT,
+        get_article_from_row,
+        &[
+            &(slug.as_str()),
+            &title,
+            &description,
+            &body,
+            &logged_id,
+            &new_slug,
+        ],
+    );
 }
 
 pub fn delete_article_handler(req: Request, res: Response, c: Captures) {
@@ -419,23 +441,26 @@ pub fn delete_article_handler(req: Request, res: Response, c: Captures) {
     println!("slug: {}", slug);
 
     #[cfg(feature = "tiberius")]
-    process(res,
-            "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 AND Author = @P2 ORDER BY 1; 
+    process(
+        res,
+        "declare @id int; select TOP(1) @id = id from Articles where Slug = @P1 AND Author = @P2 ORDER BY 1; 
         DELETE FROM Comments WHERE ArticleId = @id;
         DELETE FROM FavoritedArticles WHERE ArticleId = @id;
         DELETE FROM ArticleTags WHERE ArticleId = @id;
         DELETE FROM Articles WHERE id = @id AND Author = @P2;",
-            "SELECT 1",
-            handle_row_none,
-            &[&(slug.as_str()), &(logged_id)]);
+        "SELECT 1",
+        handle_row_none,
+        &[&(slug.as_str()), &(logged_id)],
+    );
 }
 
 #[cfg(test)]
 use rand::Rng;
 
 #[cfg(test)]
-pub fn login_create_article(follow: bool)
-                            -> (std::string::String, std::string::String, std::string::String) {
+pub fn login_create_article(
+    follow: bool,
+) -> (std::string::String, std::string::String, std::string::String) {
     let client = Client::new();
 
     let (user_name, _, jwt) = if follow {
@@ -466,7 +491,7 @@ pub fn login_create_article(follow: bool)
     println!("buffer: '{}'", buffer);
 
     let create_result: Article = serde_json::from_str(&buffer).unwrap();
-    let article = create_result;//create_result.article;    
+    let article = create_result; //create_result.article;
     assert_eq!(article.slug, slug);
     // assert_eq!(article.title, title);
     // assert_eq!(article.favorited, false);
@@ -632,8 +657,10 @@ fn update_article_test() {
     let (jwt, title, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}", title);
     let title2 = title + " NOT";
-    let body = format!(r#"{{"article": {{"title": "{}","description": "CHANGED1","body": "CHANGED2"}}}}"#,
-                title2);
+    let body = format!(
+        r#"{{"article": {{"title": "{}","description": "CHANGED1","body": "CHANGED2"}}}}"#,
+        title2
+    );
 
     let mut res = client
         .put(&url)
