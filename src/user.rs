@@ -142,7 +142,7 @@ pub fn create_user<'a>(new_user: NewUser) -> Option<UserResult> {
     let connection = establish_connection();
     let user : User = diesel::insert(&new_user).into(users::table)
         .get_result(&connection)
-        .expect("Error saving new post");
+        .expect("Error saving new user");
     Some(UserResult { user: user } )
 }
 
