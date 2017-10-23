@@ -37,9 +37,11 @@ extern crate rand;
 extern crate unicase;
 
 #[cfg(feature = "diesel")]
-#[macro_use] extern crate diesel;
+#[macro_use]
+extern crate diesel;
 #[cfg(feature = "diesel")]
-#[macro_use] extern crate diesel_codegen;
+#[macro_use]
+extern crate diesel_codegen;
 #[cfg(feature = "diesel")]
 extern crate dotenv;
 
@@ -84,9 +86,9 @@ use diesel::pg::PgConnection;
 
 pub fn since_the_epoch() -> u64 {
     let start = SystemTime::now();
-    let since_the_epoch = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
+    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect(
+        "Time went backwards",
+    );
     since_the_epoch.as_secs() * 1000 + since_the_epoch.subsec_nanos() as u64 / 1_000_000
 }
 
@@ -384,19 +386,19 @@ use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 pub fn establish_connection() -> PgConnection {
     dotenv().ok();
 
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .expect(&format!("Error connecting to {}", database_url))
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url).expect(&format!("Error connecting to {}", database_url))
 }
 
 #[cfg(feature = "tiberius")]
-fn process<'a, T>(mut res: Response,
-                  sql_command: &'static str,
-                  sql_select_command: &'static str,
-                  get_t_from_row: fn(tiberius::query::QueryRow) -> Option<T>,
-                  sql_params: &'a [&'a tiberius::ty::ToSql])
-    where T: serde::Serialize
+fn process<'a, T>(
+    mut res: Response,
+    sql_command: &'static str,
+    sql_select_command: &'static str,
+    get_t_from_row: fn(tiberius::query::QueryRow) -> Option<T>,
+    sql_params: &'a [&'a tiberius::ty::ToSql],
+) where
+    T: serde::Serialize,
 {
     println!("process entered.");
 
@@ -405,24 +407,27 @@ fn process<'a, T>(mut res: Response,
         let mut sql = Core::new().unwrap();
         let get_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str())
             .and_then(|conn| {
-                          conn.query(format!("{};{}", sql_command, sql_select_command),
-                                     sql_params)
-                              .for_each_row(|row| {
-                                                result = get_t_from_row(row);
-                                                Ok(())
-                                            })
-                      });
+                conn.query(
+                    format!("{};{}", sql_command, sql_select_command),
+                    sql_params,
+                ).for_each_row(|row| {
+                        result = get_t_from_row(row);
+                        Ok(())
+                    })
+            });
         sql.run(get_cmd).unwrap();
     }
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
-                                            UniCase("authorization".to_owned())]));
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(AccessControlAllowHeaders(vec![
+        UniCase("content-type".to_owned()),
+        UniCase("authorization".to_owned()),
+    ]));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 
     if result.is_some() {
         let result = result.unwrap();
@@ -434,25 +439,25 @@ fn process<'a, T>(mut res: Response,
 }
 
 #[cfg(feature = "diesel")]
-fn process<'a, T, U>(
-    mut res: Response,
-    process_params: fn(U) -> Option<T>,
-    params : U,
-)
-    where T: serde::Serialize, U: std::fmt::Debug
+fn process<'a, T, U>(mut res: Response, process_params: fn(U) -> Option<T>, params: U)
+where
+    T: serde::Serialize,
+    U: std::fmt::Debug,
 {
     println!("process entered with params {:?}.", params);
 
     let result: Option<T> = process_params(params);
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
-                                            UniCase("authorization".to_owned())]));
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(AccessControlAllowHeaders(vec![
+        UniCase("content-type".to_owned()),
+        UniCase("authorization".to_owned()),
+    ]));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 
     if result.is_some() {
         let result = result.unwrap();
@@ -464,42 +469,47 @@ fn process<'a, T, U>(
 }
 
 #[cfg(feature = "tiberius")]
-fn process_container<'a, T, U>(mut res: Response,
-                               sql_command: &'static str,
-                               sql_select_command: &'static str,
-                               get_t_from_row: fn(tiberius::query::QueryRow) -> Option<T>,
-                               _fix_u: fn(result: U),
-                               sql_params: &'a [&'a tiberius::ty::ToSql])
-    where T: serde::Serialize,
-          U: Container<T>,
-          U: serde::Serialize
+fn process_container<'a, T, U>(
+    mut res: Response,
+    sql_command: &'static str,
+    sql_select_command: &'static str,
+    get_t_from_row: fn(tiberius::query::QueryRow) -> Option<T>,
+    _fix_u: fn(result: U),
+    sql_params: &'a [&'a tiberius::ty::ToSql],
+) where
+    T: serde::Serialize,
+    U: Container<T>,
+    U: serde::Serialize,
 {
     let mut items: Vec<T> = Vec::new();
     {
         let mut sql = Core::new().unwrap();
         let get_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str())
             .and_then(|conn| {
-                conn.query(format!("{};{}", sql_command, sql_select_command),
-                           sql_params)
-                    .for_each_row(|row| {
-                                      let item = get_t_from_row(row);
-                                      if item.is_some() {
-                                          items.push(item.unwrap());
-                                      }
-                                      Ok(())
-                                  })
+                conn.query(
+                    format!("{};{}", sql_command, sql_select_command),
+                    sql_params,
+                ).for_each_row(|row| {
+                        let item = get_t_from_row(row);
+                        if item.is_some() {
+                            items.push(item.unwrap());
+                        }
+                        Ok(())
+                    })
             });
         sql.run(get_cmd).unwrap();
     }
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
-                                            UniCase("authorization".to_owned())]));
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(AccessControlAllowHeaders(vec![
+        UniCase("content-type".to_owned()),
+        UniCase("authorization".to_owned()),
+    ]));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 
     let result = U::create_new_with_items(items);
     let result = serde_json::to_string(&result).unwrap();
@@ -512,25 +522,27 @@ fn process_container<'a, T, U, V>(
     mut res: Response,
     _fix_u: fn(result: U),
     process_params: fn(V) -> Vec<T>,
-    params : V,
-)
-    where T: serde::Serialize,
-          U: Container<T>,
-          U: serde::Serialize,
-          V: std::fmt::Debug,
+    params: V,
+) where
+    T: serde::Serialize,
+    U: Container<T>,
+    U: serde::Serialize,
+    V: std::fmt::Debug,
 {
     println!("process_container entered with params {:?}.", params);
 
     let mut items: Vec<T> = process_params(params);
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
-                                            UniCase("authorization".to_owned())]));
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(AccessControlAllowHeaders(vec![
+        UniCase("content-type".to_owned()),
+        UniCase("authorization".to_owned()),
+    ]));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 
     let result = U::create_new_with_items(items);
     let result = serde_json::to_string(&result).unwrap();
@@ -574,26 +586,29 @@ fn test_handler(_: Request, res: Response, _: Captures) {
 }
 
 fn hello_handler(_: Request, res: Response, _: Captures) {
-    res.send(b"Hello from Rust application in Hyper running in Azure IIS.")
-        .unwrap();
+    res.send(
+        b"Hello from Rust application in Hyper running in Azure IIS.",
+    ).unwrap();
 }
 
 #[cfg(feature = "tiberius")]
 fn create_db_handler(mut req: Request, mut res: Response, _: Captures) {
     use hyper::status::StatusCode;
-    
+
     let mut body = String::new();
     let _ = req.read_to_string(&mut body);
     if body == CREATE_DATABASE_SECRET.as_str() {
         let mut script = String::new();
         let mut f = File::open("database.sql").expect("Unable to open file");
-        f.read_to_string(&mut script)
-            .expect("Unable to read string");
+        f.read_to_string(&mut script).expect(
+            "Unable to read string",
+        );
 
         let mut lp = Core::new().unwrap();
-        let future =
-            SqlConnection::connect(lp.handle(), CONNECTION_STRING.as_str())
-                .and_then(|conn| conn.query(script, &[]).for_each_row(handle_row_no_value));
+        let future = SqlConnection::connect(lp.handle(), CONNECTION_STRING.as_str())
+            .and_then(|conn| {
+                conn.query(script, &[]).for_each_row(handle_row_no_value)
+            });
         lp.run(future).unwrap();
         res.send(b"Database created.").unwrap();
     } else {
@@ -602,13 +617,15 @@ fn create_db_handler(mut req: Request, mut res: Response, _: Captures) {
 }
 fn options_handler(_: Request, mut res: Response, _: Captures) {
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(AccessControlAllowHeaders(vec![UniCase("content-type".to_owned()),
-                                            UniCase("authorization".to_owned())]));
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(AccessControlAllowHeaders(vec![
+        UniCase("content-type".to_owned()),
+        UniCase("authorization".to_owned()),
+    ]));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 }
 
 #[cfg(feature = "tiberius")]
@@ -622,10 +639,9 @@ fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
                 conn.query("SELECT STRING_AGG(Tag, ',') FROM [dbo].[Tags]", &[])
                     .for_each_row(|row| {
                         let all_tags: &str = row.get(0);
-                        result =
-                            Some(GetTagsResult {
-                                     tags: all_tags.split(",").map(|q| q.to_string()).collect(),
-                                 });
+                        result = Some(GetTagsResult {
+                            tags: all_tags.split(",").map(|q| q.to_string()).collect(),
+                        });
                         Ok(())
                     })
             });
@@ -633,10 +649,11 @@ fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
     }
 
     res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut()
-        .set(ContentType(Mime(TopLevel::Application,
-                              SubLevel::Json,
-                              vec![(Attr::Charset, Value::Utf8)])));
+    res.headers_mut().set(ContentType(Mime(
+        TopLevel::Application,
+        SubLevel::Json,
+        vec![(Attr::Charset, Value::Utf8)],
+    )));
 
     if result.is_some() {
         let result = result.unwrap();
@@ -647,7 +664,8 @@ fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
 }
 
 fn main() {
-    #[cfg(feature = "diesel")] {
+    #[cfg(feature = "diesel")]
+    {
         dotenv().ok();
     }
 
@@ -662,8 +680,7 @@ fn main() {
     // Use raw strings so you don't need to escape patterns.
     builder.get(r"/", hello_handler);
 
-    #[cfg(feature = "tiberius")]
-    builder.post(r"/createdb", create_db_handler);
+    #[cfg(feature = "tiberius")] builder.post(r"/createdb", create_db_handler);
 
     builder.post(r"/api/users/login", authentication_handler);
     builder.post(r"/api/users", registration_handler);
@@ -675,8 +692,7 @@ fn main() {
     builder.delete(r"/api/profiles/.*/follow", unfollow_handler);
     builder.post(r"/api/articles", create_article_handler);
 
-    #[cfg(feature = "tiberius")]
-    builder.get(r"/api/tags", get_tags_handler);
+    #[cfg(feature = "tiberius")] builder.get(r"/api/tags", get_tags_handler);
 
     builder.post(r"/api/articles/.*/comments", add_comment_handler);
     builder.post(r"/api/articles/.*/favorite", favorite_article_handler);
