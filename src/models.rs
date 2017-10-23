@@ -49,11 +49,11 @@ pub struct IncomingArticle {
     pub title: String,
     pub description: String,
     pub body: String,
-    //pub tagList: Vec<str>,
+    pub tagList: Vec<str>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ArticleContainer {
+pub struct IncomingArticleResult {
     pub article: IncomingArticle,
 }
 

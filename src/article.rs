@@ -116,14 +116,14 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     println!("entering ");
     let (body, logged_in_user_id) = prepare_parameters(req);
 
-    let container: ArticleContainer = serde_json::from_str(&body).unwrap();
+    let container: IncomingArticleResult = serde_json::from_str(&body).unwrap();
     let incoming_article = container.article;
     let title: &str = &incoming_article.title;
     let description: &str = &incoming_article.description;
     let article_body: &str = &incoming_article.body;
-    // let tag_list: Vec<String> = incoming_article.article.tagList.unwrap_or(Vec::new());
+    let tag_list: Vec<String> = incoming_article.tagList.unwrap_or(Vec::new());
     let slug: &str = &slugify(title);
-    // let tags: &str = &tag_list.join(",");
+    //let tags: &str = &tag_list.join(",");
 
     #[cfg(feature = "diesel")] {
         use chrono::prelude::*;
@@ -451,7 +451,7 @@ pub fn login_create_article(follow: bool)
     let title = format!("How to train your dragon {}-{}", since, num);
     let slug: &str = &slugify(title.to_owned());
 
-    let body = format!( r#"{{"article": {{"title": "{}","description": "Ever wonder how?","body": "You have to believe"
+    let body = format!( r#"{{"article": {{"title": "{}","description": "Ever wonder how?","body": "You have to believe","tagList": ["reactjs", "angularjs", "dragons"]
                 }}}}"#, title);
 
     let mut res = client
