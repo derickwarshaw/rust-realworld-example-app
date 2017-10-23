@@ -2,6 +2,8 @@ extern crate chrono;
 
 use super::schema::users;
 use super::schema::articles;
+use super::schema::tags;
+use super::schema::articletags;
 
 use chrono::prelude::*;
 
@@ -57,9 +59,10 @@ pub struct IncomingArticleResult {
     pub article: IncomingArticle,
 }
 
-#[derive(Queryable)]
+#[derive(Identifiable, Queryable, Associations)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
+#[has_many(articletags)]
 #[allow(non_snake_case)]
 pub struct Article {
     pub id: i32,
@@ -73,4 +76,27 @@ pub struct Article {
     // pub favorited: bool,
     // pub favoritesCount: i32,
     // pub tagList: Vec<String>,
+}
+
+#[derive(Identifiable, Queryable, Associations)]
+#[belongs_to(Article)]
+#[belongs_to(Tag)]
+pub struct ArticleTag {
+    pub id: i32,
+    pub article_id: i32,
+    pub tag_id: i32,
+}
+
+#[derive(Insertable)]
+#[table_name="articletags"]
+pub struct NewArticleTag {
+    pub articleid: i32,
+    pub tagid: i32,
+}
+
+#[derive(Identifiable, Queryable, Associations)]
+#[has_many(articletags)]
+pub struct Tag {
+    pub id: i32,
+    pub tag: String,
 }
