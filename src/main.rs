@@ -1,3 +1,4 @@
+#![feature(custom_attribute)]
 extern crate bson;
 
 extern crate iis;

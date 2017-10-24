@@ -51,7 +51,7 @@ pub struct IncomingArticle {
     pub title: String,
     pub description: String,
     pub body: String,
-    pub tagList: Vec<str>,
+    pub tagList: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,12 +79,14 @@ pub struct Article {
 }
 
 #[derive(Identifiable, Queryable, Associations)]
+#[table_name="articletags"]
+#[primary_key(id, articleid, tagid)]
 #[belongs_to(Article)]
 #[belongs_to(Tag)]
 pub struct ArticleTag {
     pub id: i32,
-    pub article_id: i32,
-    pub tag_id: i32,
+    pub articleid: i32,
+    pub tagid: i32,
 }
 
 #[derive(Insertable)]

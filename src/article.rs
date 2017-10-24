@@ -124,7 +124,7 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let title: &str = &incoming_article.title;
     let description: &str = &incoming_article.description;
     let article_body: &str = &incoming_article.body;
-    let tag_list: Vec<String> = incoming_article.tagList.unwrap_or(Vec::new());
+    let tag_list: Vec<String> = incoming_article.tagList;//.unwrap_or(Vec::new());
     let slug: &str = &slugify(title);
     //let tags: &str = &tag_list.join(",");
 
