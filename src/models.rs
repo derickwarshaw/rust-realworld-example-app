@@ -20,6 +20,25 @@ pub struct User {
     //pub following: Option<bool>
 }
 
+#[derive(Queryable)]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[derive(Clone)]
+#[allow(non_snake_case)]
+pub struct AdvancedArticle {
+    pub id: i32,
+    pub slug: String,
+    pub title: String,
+    pub description: String,
+    pub body: String,
+    pub createdAt: NaiveDateTime,
+    pub updatedAt: Option<NaiveDateTime>,
+    pub author: i32,
+    //pub favorited: bool,
+    //pub favoritesCount: i32,
+    pub tagList: Vec<String>,
+}
+
 #[derive(Insertable)]
 #[table_name = "users"]
 #[derive(Debug)]
@@ -98,6 +117,7 @@ pub struct NewArticleTag {
 
 #[derive(Identifiable, Queryable, Associations)]
 #[has_many(articletags)]
+#[derive(Debug)]
 pub struct Tag {
     pub id: i32,
     pub tag: String,

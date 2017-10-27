@@ -46,6 +46,25 @@ impl Container<Article> for ArticlesResult {
     }
 }
 
+fn get_tags(tags_vec: Vec<String>) -> Vec<i32> {
+        use models::Tag;
+
+        let mut tags_result = Vec::new();
+        let connection = establish_connection();
+
+        for tag_str in tags_vec {
+            use schema::tags::dsl::*;
+
+            let tag_from_db: Tag = tags
+                .filter(tag.eq(tag_str))
+                .first(&connection)
+                .unwrap();
+            &tags_result.push(tag_from_db.id);
+        }
+        tags_result
+    }
+
+
 #[cfg(feature = "tiberius")]
 static ARTICLE_SELECT : &'static str = r#"
   SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
@@ -104,28 +123,69 @@ fn get_article_from_row(row: tiberius::query::QueryRow) -> Option<CreateArticleR
 }
 
 #[cfg(feature = "diesel")]
-pub fn create_article<'a>(new_article: NewArticle) -> Option<Article> {
-    use schema::articles;
-
+pub fn create_article_tag<'a>(new_article : AdvancedArticle) {
+    
+    //use diesel::associations::HasTable;
+    
     let connection = establish_connection();
-    let article: Article = diesel::insert(&new_article)
-        .into(articles::table)
+    let tag_ids = get_tags(new_article.tagList);
+    for tag_id in tag_ids {
+        
+        let new_relationship = NewArticleTag {
+            tagid : tag_id,
+            articleid : new_article.id
+        };
+
+        use schema::articletags;
+        //use diesel::associations::HasTable;
+
+        let relationship: ArticleTag = diesel::insert(&new_relationship)
+        .into(articletags::table)
         .get_result(&connection)
-        .expect("Error saving new post");
-    Some(article)
+        .expect("Error saving new article-tag relationship");
+    } 
 }
 
+#[cfg(feature = "diesel")]
+pub fn create_article<'a>(mut article: AdvancedArticle) -> Option<Article> {
+    use schema::articles;
+
+    //let new_article = new_article.article;
+    let connection = establish_connection();
+
+    let cloned_article = article.clone();
+    let new_article = NewArticle {
+        title: &cloned_article.title,
+        slug: &cloned_article.slug,
+        description: &cloned_article.description,
+        body: &cloned_article.body,
+        createdat: cloned_article.createdAt,
+        updatedat: cloned_article.updatedAt,
+        author: cloned_article.author
+    };
+
+    let article_result: Article = diesel::insert(&new_article)
+        .into(articles::table)
+        .get_result(&connection)
+        .expect("Error saving new post");    
+
+    article.id = article_result.id;
+    create_article_tag(article);
+    Some(article_result)
+}
+
+
+
 pub fn create_article_handler(req: Request, res: Response, _: Captures) {
-    println!("entering ");
     let (body, logged_in_user_id) = prepare_parameters(req);
 
     let container: IncomingArticleResult = serde_json::from_str(&body).unwrap();
     let incoming_article = container.article;
-    let title: &str = &incoming_article.title;
-    let description: &str = &incoming_article.description;
-    let article_body: &str = &incoming_article.body;
+    let title: String = incoming_article.title;
+    let description: String = incoming_article.description;
+    let article_body: String = incoming_article.body;
     let tag_list: Vec<String> = incoming_article.tagList;//.unwrap_or(Vec::new());
-    let slug: &str = &slugify(title);
+    let slug: String = slugify(&title);
     //let tags: &str = &tag_list.join(",");
 
     #[cfg(feature = "diesel")]
@@ -133,16 +193,18 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
         use chrono::prelude::*;
         let utc: DateTime<Utc> = Utc::now();
 
-        let new_article = NewArticle {
+        let article = AdvancedArticle {
+            id : -1,
             title: title,
             slug: slug,
             description: description,
             body: article_body,
-            createdat: utc.naive_utc(),
-            updatedat: None,
+            createdAt: utc.naive_utc(),
+            updatedAt: None,
             author: logged_in_user_id,
+            tagList: tag_list,
         };
-        process(res, create_article, new_article);
+        process(res, create_article, article );
     }
 
     #[cfg(feature = "tiberius")]
@@ -354,11 +416,11 @@ fn get_article(url_slug: String) -> Option<Vec<Article>> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    let articlesVec: Vec<Article> = articles
+    let article_vec: Vec<Article> = articles
         .filter(slug.eq(url_slug))
         .load(&connection)
         .unwrap();
-    Some(articlesVec)
+    Some(article_vec)
 }
 
 pub fn get_article_handler(req: Request, res: Response, c: Captures) {
