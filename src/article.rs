@@ -1,3 +1,5 @@
+#![feature(custom_attribute)]
+
 extern crate bson;
 
 extern crate iis;
@@ -38,6 +40,13 @@ use super::*;
 #[allow(non_snake_case)]
 struct ArticlesResult {
     articles: Vec<Article>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+pub struct ArticleResult {
+    article: AdvancedArticle,
 }
 
 impl Container<Article> for ArticlesResult {
@@ -147,7 +156,7 @@ pub fn create_article_tag<'a>(new_article : AdvancedArticle) {
 }
 
 #[cfg(feature = "diesel")]
-pub fn create_article<'a>(mut article: AdvancedArticle) -> Option<Article> {
+pub fn create_article<'a>(mut article: AdvancedArticle) -> Option<ArticleResult> {
     use schema::articles;
 
     //let new_article = new_article.article;
@@ -161,7 +170,7 @@ pub fn create_article<'a>(mut article: AdvancedArticle) -> Option<Article> {
         body: &cloned_article.body,
         createdat: cloned_article.createdAt,
         updatedat: cloned_article.updatedAt,
-        author: cloned_article.author
+        author: article.author
     };
 
     let article_result: Article = diesel::insert(&new_article)
@@ -170,11 +179,12 @@ pub fn create_article<'a>(mut article: AdvancedArticle) -> Option<Article> {
         .expect("Error saving new post");    
 
     article.id = article_result.id;
+    
+    let result = article.clone();
     create_article_tag(article);
-    Some(article_result)
+    
+    Some(ArticleResult { article: result,} )
 }
-
-
 
 pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let (body, logged_in_user_id) = prepare_parameters(req);
@@ -184,7 +194,7 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     let title: String = incoming_article.title;
     let description: String = incoming_article.description;
     let article_body: String = incoming_article.body;
-    let tag_list: Vec<String> = incoming_article.tagList;//.unwrap_or(Vec::new());
+    let tag_list: Vec<String> = incoming_article.tagList.unwrap_or(Vec::new());
     let slug: String = slugify(&title);
     //let tags: &str = &tag_list.join(",");
 
@@ -412,15 +422,58 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
     );
 }
 
-fn get_article(url_slug: String) -> Option<Vec<Article>> {
+// #[cfg(feature = "tiberius")]
+// static ARTICLE_SELECT : &'static str = r#"
+//   SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
+//                 (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
+//                 (SELECT COUNT(*) FROM FavoritedArticles WHERE ArticleId = @id ) as FavoritesCount,
+//                 (SELECT COUNT(*) FROM FavoritedArticles WHERE UserId = @logged ) as PersonalFavoritesCount,
+// 				(SELECT STRING_AGG(Tag, ',') FROM [Tags] inner join ArticleTags on ArticleTags.TagId = Tags.Id where ArticleId=@id)  as Tags
+//                 FROM Articles INNER JOIN Users on Author=Users.Id  WHERE Articles.Id = @id
+// "#;
+
+fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
+    use diesel::expression::dsl::any;
+    //use diesel::associations::HasTable;
+    use schema::articletags;
+    //use schema::articletags::dsl::*;
+    use schema::tags;
+    //use schema::tags::dsl::*;
+
+    let tag_ids = ArticleTag::belonging_to(article).select(articletags::tagid);
+
+    let tag_objs =
+        tags::table
+            .filter((tags::id).eq(any(&tag_ids)))
+            .load::<Tag>(&conn)
+            .expect("could not load tags");
+    tag_objs.into_iter().map(|t| t.tag).collect()
+}
+
+fn get_article(url_slug: String) -> Option<ArticleResult> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    let article_vec: Vec<Article> = articles
+    let article: Article = articles
         .filter(slug.eq(url_slug))
-        .load(&connection)
+        .first(&connection)
         .unwrap();
-    Some(article_vec)
+
+    let tag_names = get_tags_for_article(&article, connection);
+
+    let result = AdvancedArticle {
+        id : article.id,
+        slug : article.slug,
+        title : article.title,
+        description : article.description,
+        body : article.body,
+        createdAt : article.createdAt,
+        updatedAt : article.updatedAt,
+        tagList : tag_names,
+        author : article.author,
+    };
+
+    Some(ArticleResult { article: result,})
 }
 
 pub fn get_article_handler(req: Request, res: Response, c: Captures) {
@@ -552,13 +605,13 @@ pub fn login_create_article(
     res.read_to_string(&mut buffer).unwrap();
     println!("buffer: '{}'", buffer);
 
-    let create_result: Article = serde_json::from_str(&buffer).unwrap();
-    let article = create_result; //create_result.article;
+    let create_result: ArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
     assert_eq!(article.slug, slug);
-    // assert_eq!(article.title, title);
+    assert_eq!(article.title, title);
     // assert_eq!(article.favorited, false);
     // assert_eq!(article.author.username, user_name);
-    // assert_eq!(article.tagList.len(), 3);
+    assert_eq!(article.tagList.len(), 3);
 
     assert_eq!(res.status, hyper::Ok);
 

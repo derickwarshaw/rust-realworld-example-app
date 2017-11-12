@@ -6,6 +6,7 @@ use super::schema::tags;
 use super::schema::articletags;
 
 use chrono::prelude::*;
+use diesel::prelude::*;
 
 #[derive(Queryable)]
 #[derive(Serialize, Deserialize)]
@@ -70,7 +71,7 @@ pub struct IncomingArticle {
     pub title: String,
     pub description: String,
     pub body: String,
-    pub tagList: Vec<String>,
+    pub tagList: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -98,10 +99,11 @@ pub struct Article {
 }
 
 #[derive(Identifiable, Queryable, Associations)]
-#[table_name="articletags"]
-#[primary_key(id, articleid, tagid)]
-#[belongs_to(Article)]
-#[belongs_to(Tag)]
+#[derive(Serialize, Deserialize)]
+#[table_name = "articletags"]
+#[primary_key(id)]
+#[belongs_to(Article, foreign_key = "articleid")]
+#[belongs_to(Tag, foreign_key = "tagid")]
 pub struct ArticleTag {
     pub id: i32,
     pub articleid: i32,
@@ -117,6 +119,7 @@ pub struct NewArticleTag {
 
 #[derive(Identifiable, Queryable, Associations)]
 #[has_many(articletags)]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 pub struct Tag {
     pub id: i32,
