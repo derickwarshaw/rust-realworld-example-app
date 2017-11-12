@@ -571,7 +571,7 @@ fn handle_row_none(_: tiberius::query::QueryRow) -> Option<i32> {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn get_tags_test() {
     let client = Client::new();
 
@@ -629,40 +629,46 @@ fn options_handler(_: Request, mut res: Response, _: Captures) {
     )));
 }
 
-#[cfg(feature = "tiberius")]
 fn get_tags_handler(_: Request, mut res: Response, _: Captures) {
-    let mut result: Option<GetTagsResult> = None;
+    #[cfg(feature = "diesel")] {
+      process(res, get_tag_names, "");
+    } 
+    
+    #[cfg(feature = "tiberius")]{
+        let mut result: Option<GetTagsResult> = None;
 
-    {
-        let mut sql = Core::new().unwrap();
-        let get_tags_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str())
-            .and_then(|conn| {
-                conn.query("SELECT STRING_AGG(Tag, ',') FROM [dbo].[Tags]", &[])
-                    .for_each_row(|row| {
-                        let all_tags: &str = row.get(0);
-                        result = Some(GetTagsResult {
-                            tags: all_tags.split(",").map(|q| q.to_string()).collect(),
-                        });
-                        Ok(())
-                    })
-            });
-        sql.run(get_tags_cmd).unwrap();
-    }
+        {
+            let mut sql = Core::new().unwrap();
+            let get_tags_cmd = SqlConnection::connect(sql.handle(), CONNECTION_STRING.as_str())
+                .and_then(|conn| {
+                    conn.query("SELECT STRING_AGG(Tag, ',') FROM [dbo].[Tags]", &[])
+                        .for_each_row(|row| {
+                            let all_tags: &str = row.get(0);
+                            result = Some(GetTagsResult {
+                                tags: all_tags.split(",").map(|q| q.to_string()).collect(),
+                            });
+                            Ok(())
+                        })
+                });
+            sql.run(get_tags_cmd).unwrap();
+        }
+        
+        res.headers_mut().set(AccessControlAllowOrigin::Any);
+        res.headers_mut().set(ContentType(Mime(
+            TopLevel::Application,
+            SubLevel::Json,
+            vec![(Attr::Charset, Value::Utf8)],
+        )));
 
-    res.headers_mut().set(AccessControlAllowOrigin::Any);
-    res.headers_mut().set(ContentType(Mime(
-        TopLevel::Application,
-        SubLevel::Json,
-        vec![(Attr::Charset, Value::Utf8)],
-    )));
-
-    if result.is_some() {
-        let result = result.unwrap();
-        let result = serde_json::to_string(&result).unwrap();
-        let result: &[u8] = result.as_bytes();
-        res.send(&result).unwrap();
+        if result.is_some() {
+            let result = result.unwrap();
+            let result = serde_json::to_string(&result).unwrap();
+            let result: &[u8] = result.as_bytes();
+            res.send(&result).unwrap();
+        }
     }
 }
+
 
 fn main() {
     #[cfg(feature = "diesel")]
@@ -693,7 +699,7 @@ fn main() {
     builder.delete(r"/api/profiles/.*/follow", unfollow_handler);
     builder.post(r"/api/articles", create_article_handler);
 
-    #[cfg(feature = "tiberius")] builder.get(r"/api/tags", get_tags_handler);
+    builder.get(r"/api/tags", get_tags_handler);
 
     builder.post(r"/api/articles/.*/comments", add_comment_handler);
     builder.post(r"/api/articles/.*/favorite", favorite_article_handler);

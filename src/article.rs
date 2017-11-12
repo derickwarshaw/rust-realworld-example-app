@@ -49,13 +49,37 @@ pub struct ArticleResult {
     article: AdvancedArticle,
 }
 
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+pub struct TagsResult {
+    tags: Vec<String>,
+}
+
 impl Container<Article> for ArticlesResult {
     fn create_new_with_items(articles: Vec<Article>) -> ArticlesResult {
         ArticlesResult { articles: articles }
     }
 }
 
-fn get_tags(tags_vec: Vec<String>) -> Vec<i32> {
+pub fn get_tag_names<'a>(a: &str) -> Option<TagsResult> {
+        use models::Tag;
+        use schema::tags;
+
+        let conn = establish_connection();
+        
+        let tags_result = 
+            tags::table
+            .load::<Tag>(&conn)
+            .expect(
+                "Error loading tags",
+            );
+
+        let result = tags_result.into_iter().map(|t| t.tag).collect();
+        Some(TagsResult { tags: result,})
+    }
+
+fn get_tag_ids(tags_vec: Vec<String>) -> Vec<i32> {
         use models::Tag;
 
         let mut tags_result = Vec::new();
@@ -137,7 +161,7 @@ pub fn create_article_tag<'a>(new_article : AdvancedArticle) {
     //use diesel::associations::HasTable;
     
     let connection = establish_connection();
-    let tag_ids = get_tags(new_article.tagList);
+    let tag_ids = get_tag_ids(new_article.tagList);
     for tag_id in tag_ids {
         
         let new_relationship = NewArticleTag {
@@ -434,11 +458,8 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
 
 fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
     use diesel::expression::dsl::any;
-    //use diesel::associations::HasTable;
     use schema::articletags;
-    //use schema::articletags::dsl::*;
     use schema::tags;
-    //use schema::tags::dsl::*;
 
     let tag_ids = ArticleTag::belonging_to(article).select(articletags::tagid);
 
@@ -691,8 +712,8 @@ fn get_article_test() {
     res.read_to_string(&mut buffer).unwrap();
 
 
-    let create_result: Vec<Article> = serde_json::from_str(&buffer).unwrap();
-    let article = create_result.first().unwrap();
+    let create_result: ArticleResult = serde_json::from_str(&buffer).unwrap();
+    let article = create_result.article;
     assert_eq!(article.slug, slug);
     // assert_eq!(article.favorited, false);
     // assert_eq!(article.favoritesCount, 0);
