@@ -40,6 +40,22 @@ pub struct AdvancedArticle {
     pub tagList: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[table_name = "articles"]
+#[derive(AsChangeset)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+pub struct UpdatedArticle<'a> {
+    pub id: i32,
+    pub slug: &'a str,
+    pub title: &'a str,
+    pub description: &'a str,
+    pub body: &'a str,
+    pub author: i32,
+    pub createdat: NaiveDateTime,
+    pub updatedat: Option<NaiveDateTime>,
+}
+
 #[derive(Insertable)]
 #[table_name = "users"]
 #[derive(Debug)]
