@@ -519,9 +519,11 @@ pub fn get_article_handler(req: Request, res: Response, c: Captures) {
 pub fn update_article<'a>(new_article: UpdatedArticle) -> Option<ArticleResult> {
     use schema::articles;
 
-    diesel::update(articles::table).set(&new_article);
+    let conn = establish_connection();
 
-    get_article(new_article.slug.to_owned())
+    let result = new_article.save_changes::<Article>(&conn).unwrap();
+
+    get_article(result.slug)
 }
 
 pub fn update_article_handler(req: Request, res: Response, c: Captures) {

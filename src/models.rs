@@ -43,6 +43,7 @@ pub struct AdvancedArticle {
 #[derive(Serialize, Deserialize)]
 #[table_name = "articles"]
 #[derive(AsChangeset)]
+#[derive(Identifiable)]
 #[derive(Debug)]
 #[allow(non_snake_case)]
 pub struct UpdatedArticle<'a> {
