@@ -604,12 +604,32 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
     );
 }
 
+#[cfg(feature = "diesel")]
+fn delete_article (url_slug: String) -> Option<bool> {
+    use schema::articles::dsl::*;
+    let connection = establish_connection();
+
+    // let article: Article = articles
+    //     .filter(slug.eq(url_slug))
+    //     .first(&connection)
+    //     .unwrap();
+    // article.del
+
+    diesel::delete(articles.filter(slug.eq(url_slug))).execute(&connection);
+    None
+}
+
 pub fn delete_article_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let slug = &caps[0].replace("/api/articles/", "");
     println!("slug: {}", slug);
+
+    #[cfg(feature = "diesel")] 
+    {
+        process(res, delete_article, slug.to_owned());
+    };
 
     #[cfg(feature = "tiberius")]
     process(
@@ -854,7 +874,7 @@ fn update_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn delete_article_test() {
     let client = Client::new();
 
