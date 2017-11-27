@@ -4,12 +4,14 @@ use super::schema::users;
 use super::schema::articles;
 use super::schema::tags;
 use super::schema::articletags;
+use super::schema::favoritedarticles;
 
 use chrono::prelude::*;
 use diesel::prelude::*;
 
-#[derive(Queryable)]
+#[derive(Identifiable, Queryable, Associations)]
 #[derive(Serialize, Deserialize)]
+#[has_many(favoritedarticles)]
 #[derive(Debug)]
 pub struct User {
     pub id: i32,
@@ -35,8 +37,8 @@ pub struct AdvancedArticle {
     pub createdAt: NaiveDateTime,
     pub updatedAt: Option<NaiveDateTime>,
     pub author: i32,
-    //pub favorited: bool,
-    //pub favoritesCount: i32,
+    pub favorited: bool,
+    pub favoritesCount: i64,
     pub tagList: Vec<String>,
 }
 
@@ -100,6 +102,7 @@ pub struct IncomingArticleResult {
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[has_many(articletags)]
+#[has_many(favoritedarticles)]
 #[allow(non_snake_case)]
 pub struct Article {
     pub id: i32,
@@ -110,9 +113,6 @@ pub struct Article {
     pub createdAt: NaiveDateTime,
     pub updatedAt: Option<NaiveDateTime>,
     pub author: i32,
-    // pub favorited: bool,
-    // pub favoritesCount: i32,
-    // pub tagList: Vec<String>,
 }
 
 #[derive(Identifiable, Queryable, Associations)]
@@ -127,11 +127,32 @@ pub struct ArticleTag {
     pub tagid: i32,
 }
 
+#[derive(Identifiable, Queryable, Associations)]
+#[derive(Serialize, Deserialize)]
+#[table_name = "favoritedarticles"]
+#[primary_key(id)]
+#[belongs_to(Article, foreign_key = "articleid")]
+#[belongs_to(User, foreign_key = "userid")]
+pub struct ArticleUser {
+    pub id: i32,
+    pub articleid: i32,
+    pub userid: i32,
+}
+
 #[derive(Insertable)]
+#[derive(Debug)]
 #[table_name="articletags"]
 pub struct NewArticleTag {
     pub articleid: i32,
     pub tagid: i32,
+}
+
+#[derive(Insertable)]
+#[derive(Debug)]
+#[table_name="favoritedarticles"]
+pub struct NewArticleUser {
+    pub articleid: i32,
+    pub userid: i32,
 }
 
 #[derive(Identifiable, Queryable, Associations)]

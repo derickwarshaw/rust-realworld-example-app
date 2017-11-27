@@ -237,6 +237,8 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
             updatedAt: None,
             author: logged_in_user_id,
             tagList: tag_list,
+            favorited: false,
+            favoritesCount: 0,
         };
         process(res, create_article, article );
     }
@@ -254,7 +256,6 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
         &[&title, &description, &body, &logged_in_user_id, &slug,&tags,]
     );
 }
-
 
 fn process_and_return_article(
     name: &str,
@@ -283,7 +284,63 @@ fn process_and_return_article(
     );
 }
 
+#[cfg(feature = "diesel")]
+fn favorite_article<'a>(new_relationship: NewArticleUser) {
+    
+    //use diesel::associations::HasTable;
+    
+    let connection = establish_connection();
+
+    use schema::favoritedarticles;
+    //use diesel::associations::HasTable;
+
+    let relationship: ArticleUser = diesel::insert(&new_relationship)
+    .into(favoritedarticles::table)
+    .get_result(&connection)
+    .expect("Error saving new favorited article relationship");    
+}
+
+#[cfg(feature = "diesel")]
+fn get_favorites_count(article_id: i32) -> i64 {
+    use schema::favoritedarticles::dsl::*;
+    use diesel::expression::count;
+
+    let connection = establish_connection();
+
+    let article_count: i64 = favoritedarticles
+        //.select(count(articleid))
+        .filter(articleid.eq(article_id))
+        .count()
+        .get_result(&connection)
+        .unwrap();
+    article_count
+}
+
+#[cfg(feature = "diesel")]
+fn is_favorited(article_id: i32) -> bool {
+    let count = get_favorites_count(article_id);
+    count > 0
+}
+
 pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
+    #[cfg(feature = "diesel")]
+    {
+        let (_, logged_in_user_id) = prepare_parameters(req);
+        let caps = c.unwrap();
+        let url_slug = &caps[0].replace("/api/articles/", "").replace(
+            "/favorite","",
+        );
+
+        let article = get_article(url_slug.to_owned());
+        let new_relationship = NewArticleUser {
+            userid : logged_in_user_id,
+            articleid : article.unwrap().article.id,
+    }   ;
+        favorite_article(new_relationship);
+        process(res, get_article, url_slug.to_owned() );
+    };
+
+    #[cfg(feature = "tiberius")]
     process_and_return_article(
         "favorite_article_handler",
         req,
@@ -456,6 +513,7 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
 //                 FROM Articles INNER JOIN Users on Author=Users.Id  WHERE Articles.Id = @id
 // "#;
 
+
 fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
     use diesel::expression::dsl::any;
     use schema::articletags;
@@ -481,6 +539,7 @@ fn get_article(url_slug: String) -> Option<ArticleResult> {
         .unwrap();
 
     let tag_names = get_tags_for_article(&article, connection);
+    let favorites_count = get_favorites_count(article.id);
 
     let result = AdvancedArticle {
         id : article.id,
@@ -492,6 +551,8 @@ fn get_article(url_slug: String) -> Option<ArticleResult> {
         updatedAt : article.updatedAt,
         tagList : tag_names,
         author : article.author,
+        favoritesCount: favorites_count,
+        favorited: favorites_count > 0,
     };
 
     Some(ArticleResult { article: result,})
@@ -700,7 +761,7 @@ fn create_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn favorite_article_test() {
     let client = Client::new();
 
@@ -715,12 +776,12 @@ fn favorite_article_test() {
     let mut buffer = String::new();
     res.read_to_string(&mut buffer).unwrap();
 
-    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
+    let create_result: ArticleResult = serde_json::from_str(&buffer).unwrap();
     let article = create_result.article;
     assert_eq!(article.slug, slug);
     assert_eq!(article.favorited, true);
     assert_eq!(article.favoritesCount, 1);
-    assert_eq!(article.author.username, user_name);
+    //assert_eq!(article.author.username, user_name);
 
     assert_eq!(res.status, hyper::Ok);
 }
