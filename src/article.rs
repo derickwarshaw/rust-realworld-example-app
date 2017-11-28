@@ -285,6 +285,20 @@ fn process_and_return_article(
 }
 
 #[cfg(feature = "diesel")]
+fn unfavorite_article<'a>(article_id: i32, user_id: i32) -> Option<bool> {
+    use schema::favoritedarticles::dsl::*;
+    let connection = establish_connection();
+
+    let relationship: ArticleUser = favoritedarticles
+        .filter(articleid.eq(article_id).and(userid.eq(user_id)))
+        .first(&connection)
+        .unwrap();
+
+    diesel::delete(favoritedarticles.filter(id.eq(relationship.id))).execute(&connection);
+    None
+}
+
+#[cfg(feature = "diesel")]
 fn favorite_article<'a>(new_relationship: NewArticleUser) {
     
     //use diesel::associations::HasTable;
@@ -355,6 +369,23 @@ pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
 }
 
 pub fn unfavorite_article_handler(req: Request, res: Response, c: Captures) {
+    #[cfg(feature = "diesel")]
+    {
+        use schema::favoritedarticles::dsl::*;
+
+        let (_, logged_in_user_id) = prepare_parameters(req);
+        let caps = c.unwrap();
+        let url_slug = &caps[0].replace("/api/articles/", "").replace(
+            "/favorite","",
+        );
+
+        let article: ArticleResult = get_article(url_slug.to_owned()).unwrap();
+
+        unfavorite_article(article.article.id, logged_in_user_id);
+        process(res, get_article, url_slug.to_owned() );
+    };
+
+    #[cfg(feature = "tiberius")]
     process_and_return_article(
         "unfavorite_article_handler",
         req,
@@ -670,12 +701,6 @@ fn delete_article (url_slug: String) -> Option<bool> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    // let article: Article = articles
-    //     .filter(slug.eq(url_slug))
-    //     .first(&connection)
-    //     .unwrap();
-    // article.del
-
     diesel::delete(articles.filter(slug.eq(url_slug))).execute(&connection);
     None
 }
@@ -787,28 +812,46 @@ fn favorite_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn unfavorite_article_test() {
     let client = Client::new();
-
+    
     let (jwt, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}/favorite", slug);
+    let jwt_copy = jwt.clone();
+
+    //first favorite the article, so we can unfavorite it later
+    let mut res = client
+        .post(&url)
+        .header(Authorization(Bearer { token: jwt }))
+        .send()
+        .unwrap();
+    let mut favorite_buffer = String::new();
+    res.read_to_string(&mut favorite_buffer).unwrap();
+
+    let create_result: ArticleResult = serde_json::from_str(&favorite_buffer).unwrap();
+    let article = create_result.article;
+    assert_eq!(article.slug, slug);
+    assert_eq!(article.favorited, true);
+    assert_eq!(article.favoritesCount, 1);
+
+    assert_eq!(res.status, hyper::Ok);
 
     let mut res = client
         .delete(&url)
-        .header(Authorization(Bearer { token: jwt }))
+        .header(Authorization(Bearer { token: jwt_copy }))
         .body("")
         .send()
         .unwrap();
     let mut buffer = String::new();
     res.read_to_string(&mut buffer).unwrap();
 
-    let create_result: CreateArticleResult = serde_json::from_str(&buffer).unwrap();
-    let article = create_result.article;
-    assert_eq!(article.slug, slug);
-    assert_eq!(article.favorited, false);
-    assert_eq!(article.favoritesCount, 0);
-    assert_eq!(article.author.username, user_name);
+    let create_result: ArticleResult = serde_json::from_str(&buffer).unwrap();
+    let unfavorited_article = create_result.article;
+    assert_eq!(unfavorited_article.slug, slug);
+    assert_eq!(unfavorited_article.favorited, false);
+    assert_eq!(unfavorited_article.favoritesCount, 0);
+    //assert_eq!(article.author.username, user_name);
 
     assert_eq!(res.status, hyper::Ok);
 }
