@@ -299,14 +299,10 @@ fn unfavorite_article<'a>(article_id: i32, user_id: i32) -> Option<bool> {
 }
 
 #[cfg(feature = "diesel")]
-fn favorite_article<'a>(new_relationship: NewArticleUser) {
-    
-    //use diesel::associations::HasTable;
-    
+fn favorite_article<'a>(new_relationship: NewArticleUser) {  
     let connection = establish_connection();
 
     use schema::favoritedarticles;
-    //use diesel::associations::HasTable;
 
     let relationship: ArticleUser = diesel::insert(&new_relationship)
     .into(favoritedarticles::table)
@@ -322,7 +318,6 @@ fn get_favorites_count(article_id: i32) -> i64 {
     let connection = establish_connection();
 
     let article_count: i64 = favoritedarticles
-        //.select(count(articleid))
         .filter(articleid.eq(article_id))
         .count()
         .get_result(&connection)
@@ -881,7 +876,7 @@ fn get_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn list_article_test() {
     let client = Client::new();
 
