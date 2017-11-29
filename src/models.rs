@@ -5,6 +5,7 @@ use super::schema::articles;
 use super::schema::tags;
 use super::schema::articletags;
 use super::schema::favoritedarticles;
+use super::schema::followings;
 
 use chrono::prelude::*;
 use diesel::prelude::*;
@@ -13,6 +14,7 @@ use diesel::prelude::*;
 #[derive(Serialize, Deserialize)]
 #[has_many(favoritedarticles)]
 #[derive(Debug)]
+#[cfg(feature = "diesel")]
 pub struct User {
     pub id: i32,
     pub email: String,
@@ -21,6 +23,26 @@ pub struct User {
     pub bio: Option<String>,
     pub image: Option<String>,
     //pub following: Option<bool>
+}
+
+#[derive(Identifiable, Queryable, Associations)]
+#[derive(Serialize, Deserialize)]
+#[table_name = "followings"]
+#[primary_key(id)]
+//#[belongs_to(User, foreign_key = "followingid")]
+#[belongs_to(User, foreign_key = "followerid")]
+pub struct Following {
+    pub id: i32,
+    pub followingid: i32,
+    pub followerid: i32,
+}
+
+#[derive(Insertable)]
+#[derive(Debug)]
+#[table_name="followings"]
+pub struct NewFollowing {
+    pub followingid: i32,
+    pub followerid: i32,
 }
 
 #[derive(Queryable)]

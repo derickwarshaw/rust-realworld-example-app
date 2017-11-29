@@ -224,6 +224,18 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
+fn get_user_by_name(user_name: &str) -> Option<User> {
+    use schema::users::dsl::*;
+
+    let connection = establish_connection();
+    let result: User = 
+        users
+        .filter(username.eq(user_name))
+        .first(&connection)
+        .unwrap();
+    Some(result)
+}
+
 pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
@@ -249,12 +261,30 @@ pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
+fn get_profile_result(user: User) -> Option<ProfileResult> {
+    let result = Profile {
+        username : user.username,
+        bio : user.bio,
+        image : user.image,
+        //TODO
+        following : false,
+    };
+
+     Some(ProfileResult { profile: result,})
+}
+
 pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let profile = &caps[0].replace("/api/profiles/", "");
     println!("profile: {}", profile);
+
+    #[cfg(feature = "diesel")] {
+        let user = get_user_by_name(profile).unwrap();
+
+        process(res, get_profile_result, user)
+    }
 
     #[cfg(feature = "tiberius")]
     process(
@@ -282,6 +312,18 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
     );
 }
 
+#[cfg(feature = "diesel")]
+fn follow_user<'a>(follow: NewFollowing) {  
+    let connection = establish_connection();
+
+    use schema::followings;
+
+    let relationship: Following = diesel::insert(&follow)
+    .into(followings::table)
+    .get_result(&connection)
+    .expect("Error saving new favorited article relationship");    
+}
+
 pub fn follow_handler(req: Request, res: Response, c: Captures) {
 
     let (_, logged_in_user_id) = prepare_parameters(req);
@@ -289,6 +331,20 @@ pub fn follow_handler(req: Request, res: Response, c: Captures) {
     let caps = c.unwrap();
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
+
+    #[cfg(feature = "diesel")] {
+        let followed_user : User = get_user_by_name(profile).unwrap();
+
+        let follow = NewFollowing {
+            followerid : logged_in_user_id,
+            followingid : followed_user.id,
+        };
+
+        follow_user(follow);
+
+        let updated = get_user_by_name(profile).unwrap();
+        process(res, get_profile_result, updated)
+    }
 
     #[cfg(feature = "tiberius")]
     process(
@@ -614,7 +670,7 @@ fn profile_unlogged_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn follow_test() {
     follow_jacob();
 }
