@@ -262,12 +262,12 @@ pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
 }
 
 fn get_profile_result(user: User) -> Option<ProfileResult> {
+    let followed = is_followed(user.id);
     let result = Profile {
         username : user.username,
         bio : user.bio,
         image : user.image,
-        //TODO
-        following : false,
+        following : followed,
     };
 
      Some(ProfileResult { profile: result,})
@@ -303,6 +303,16 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
     let profile = &caps[0].replace("/api/profiles/", "").replace("/follow", "");
     println!("profile: {}", profile);
 
+    #[cfg(feature = "diesel")] {
+        let following : User = get_user_by_name(profile).unwrap();
+
+        unfollow_user(logged_in_user_id, following.id);
+
+        let updated_user = get_user_by_name(profile).unwrap();
+
+        process(res, get_profile_result, updated_user)
+    }
+
     #[cfg(feature = "tiberius")]
     process(
         res,
@@ -310,6 +320,21 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
         get_profile_from_row,
         &[&(profile.as_str()), &logged_in_user_id]
     );
+}
+
+#[cfg(feature = "diesel")]
+fn is_followed(user_id: i32) -> bool {
+    use schema::followings::dsl::*;
+    use diesel::expression::count;
+
+    let connection = establish_connection();
+
+    let followers_count: i64 = followings
+        .filter(followingid.eq(user_id))
+        .count()
+        .get_result(&connection)
+        .unwrap();
+    followers_count > 0    
 }
 
 #[cfg(feature = "diesel")]
@@ -322,6 +347,20 @@ fn follow_user<'a>(follow: NewFollowing) {
     .into(followings::table)
     .get_result(&connection)
     .expect("Error saving new favorited article relationship");    
+}
+
+#[cfg(feature = "diesel")]
+fn unfollow_user<'a>(follower_id: i32, following_id: i32) {  
+    let connection = establish_connection();
+
+    use schema::followings::dsl::*;
+
+    let relationship: Following = followings
+        .filter(followerid.eq(follower_id).and(followingid.eq(following_id)))
+        .first(&connection)
+        .unwrap();
+
+    diesel::delete(followings.filter(id.eq(relationship.id))).execute(&connection);   
 }
 
 pub fn follow_handler(req: Request, res: Response, c: Captures) {
@@ -702,7 +741,7 @@ fn profile_logged_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn unfollow_test() {
     let client = Client::new();
 
