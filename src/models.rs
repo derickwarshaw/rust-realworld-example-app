@@ -91,6 +91,21 @@ pub struct NewUser<'a> {
 }
 
 #[derive(Insertable)]
+#[table_name = "users"]
+#[derive(AsChangeset)]
+#[derive(Identifiable)]
+#[derive(Debug)]
+#[allow(non_snake_case)]
+pub struct UpdatedUser<'a> {
+    pub id: i32,
+    pub email: &'a str,
+    pub token: &'a str,
+    pub username: &'a str,
+    pub image: &'a str,
+    pub bio: &'a str,
+}
+
+#[derive(Insertable)]
 #[table_name = "articles"]
 #[derive(Debug)]
 pub struct NewArticle<'a> {

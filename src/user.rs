@@ -184,20 +184,44 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
     }
 }
 
+#[cfg(feature = "diesel")] 
+fn update_user(updated: UpdatedUser) -> Option<UserResult> {
+    use schema::users;
+
+    let conn = establish_connection();
+
+    let result = updated.save_changes::<User>(&conn).unwrap();
+
+    Some(UserResult { user:result })
+}
+
 pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     let (body, logged_in_user_id) = prepare_parameters(req);
 
-    let update_user: UpdateUser = serde_json::from_str(&body).unwrap();
-    let user_name: &str = &update_user.user.username.as_ref().map(|x| &**x).unwrap_or(
+    let updated_user: UpdateUser = serde_json::from_str(&body).unwrap();
+    let user_name: &str = &updated_user.user.username.as_ref().map(|x| &**x).unwrap_or(
         "",
     );
-    let bio: &str = update_user.user.bio.as_ref().map(|x| &**x).unwrap_or("");
-    let image: &str = update_user.user.image.as_ref().map(|x| &**x).unwrap_or("");
-    let email: &str = &update_user.user.email.as_ref().map(|x| &**x).unwrap_or("");
-    let password: &str = &update_user.user.password.as_ref().map(|x| &**x).unwrap_or(
+    let new_bio: &str = updated_user.user.bio.as_ref().map(|x| &**x).unwrap_or("");
+    let new_image: &str = updated_user.user.image.as_ref().map(|x| &**x).unwrap_or("");
+    let new_email: &str = &updated_user.user.email.as_ref().map(|x| &**x).unwrap_or("");
+    let new_password: &str = &updated_user.user.password.as_ref().map(|x| &**x).unwrap_or(
         "",
     );
-    let token: &str = &crypto::pbkdf2::pbkdf2_simple(password, 10000).unwrap();
+    let new_token: &str = &crypto::pbkdf2::pbkdf2_simple(new_password, 10000).unwrap();
+
+    #[cfg(feature = "diesel")] {
+        let updated = UpdatedUser  {
+            id : logged_in_user_id,
+            email : new_email,
+            bio : new_bio,
+            image : new_image,
+            token : new_token,
+            username : user_name,
+        };
+
+        process(res, update_user, updated)
+    }
 
     #[cfg(feature = "tiberius")]
     process(
@@ -236,6 +260,18 @@ fn get_user_by_name(user_name: &str) -> Option<User> {
     Some(result)
 }
 
+#[cfg(feature = "diesel")]
+fn get_current_user(user_id: i32) -> Option<UserResult> {
+    use schema::users::dsl::*;
+
+    let connection = establish_connection();
+    let user: User = users
+        .filter(id.eq(user_id))
+        .first(&connection)
+        .unwrap();
+    Some(UserResult { user: user })
+}
+
 pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
     let (_, logged_in_user_id) = prepare_parameters(req);
 
@@ -248,17 +284,7 @@ pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
         &[&logged_in_user_id],
     );
     #[cfg(feature = "diesel")]
-    process(
-        res,
-        (|x| {
-             use schema::users::dsl::*;
-
-             let connection = establish_connection();
-             let user: User = users.find(x).first(&connection).unwrap();
-             Some(UserResult { user: user })
-         }),
-        logged_in_user_id,
-    );
+    process(res, get_current_user,logged_in_user_id);
 }
 
 fn get_profile_result(user: User) -> Option<ProfileResult> {
@@ -608,7 +634,7 @@ fn login_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn get_current_user_test() {
     let client = Client::new();
     let (user_name, email) = register_jacob();
@@ -633,7 +659,7 @@ fn get_current_user_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn update_user_test() {
     let client = Client::new();
     let (user_name, email) = register_jacob();
@@ -664,7 +690,7 @@ fn update_user_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 #[should_panic]
 fn get_current_user_fail_test() {
     let client = Client::new();
