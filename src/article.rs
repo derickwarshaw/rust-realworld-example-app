@@ -418,6 +418,17 @@ pub fn feed_handler(req: Request, res: Response, c: Captures) {
         };
     }
 
+    #[cfg(feature = "diesel")] {
+        let filter: FilterParams = FilterParams {
+            tag: "",
+            author: "",
+            favorited: "",
+            offset: offset,
+            limit: limit,
+        };
+        process_container(res, articles_result, get_articles_by_filter, filter);
+    }
+
     #[cfg(feature = "tiberius")]
     process_container(
         res,
@@ -446,11 +457,30 @@ pub struct FilterParams<'a> {
     pub limit: i32,
 }
 
+//         r#"SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
+//         (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
+//         (SELECT COUNT(*) FROM FavoritedArticles WHERE ArticleId = Articles.Id ) as FavoritesCount,
+//         (SELECT COUNT(*) FROM FavoritedArticles WHERE UserId = @logged ) as PersonalFavoritesCount,
+// 		(SELECT STRING_AGG(Tag, ',') FROM [Tags] inner join ArticleTags on ArticleTags.TagId = Tags.Id where ArticleId=Articles.Id)  as Tags
+//         FROM Articles INNER JOIN Users on Author=Users.Id  
+		
+// 		WHERE Articles.Id in ( SELECT ArticleId from ArticleTags WHERE TagId IN ( Select Id from Tags where Tag = @tag OR LEN(@tag) = 0 )  ) 
+// 		/*inner join ArticleTags on ArticleTags.ArticleId = Articles.id 
+// 		inner join Tags on Tags.Id = ArticleTags.TagId and Tag = @tag OR LEN(@tag) = 0*/
+		
+// 		AND Articles.Author in ( SELECT Id from Users where UserName = @username OR LEN(@username) = 0 ) 
+
+// 		AND Articles.Id in ( SELECT ArticleId from FavoritedArticles WHERE UserId IN ( SELECT Id from Users where UserName = @favorited OR LEN(@favorited) = 0 )  ) 
+
+// order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
+
 fn get_articles_by_filter(filter: FilterParams) -> Vec<Article> {
     use schema::articles;
 
     let connection = establish_connection();
-    articles::table.load(&connection).expect(
+    articles::table
+    //.filter()
+    .load(&connection).expect(
         "Error loading articles",
     )
 }
@@ -856,8 +886,7 @@ fn unfavorite_article_test() {
 fn get_article_test() {
     let client = Client::new();
 
-    let (_, _, user_name) = login_create_article(false);
-    let slug = "dragons";
+    let (_, slug, user_name) = login_create_article(false);
     let url = format!("http://localhost:6767/api/articles/{}", &slug);
 
     let mut res = client.get(&url).send().unwrap();
@@ -868,8 +897,8 @@ fn get_article_test() {
     let create_result: ArticleResult = serde_json::from_str(&buffer).unwrap();
     let article = create_result.article;
     assert_eq!(article.slug, slug);
-    // assert_eq!(article.favorited, false);
-    // assert_eq!(article.favoritesCount, 0);
+    assert_eq!(article.favorited, false);
+    assert_eq!(article.favoritesCount, 0);
     // assert_eq!(article.author.username, user_name);
 
     assert_eq!(res.status, hyper::Ok);
@@ -897,7 +926,7 @@ fn list_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn unfollowed_feed_article_test() {
     let client = Client::new();
 
@@ -918,7 +947,7 @@ fn unfollowed_feed_article_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn followed_feed_article_test() {
     let client = Client::new();
 
@@ -935,7 +964,7 @@ fn followed_feed_article_test() {
     res.read_to_string(&mut buffer).unwrap();
 
     let articles: ArticlesResult = serde_json::from_str(&buffer).unwrap();
-    assert_eq!(articles.articles.len() == 1, true);
+    assert_eq!(articles.articles.len() > 0, true);
 }
 
 #[cfg(test)]
