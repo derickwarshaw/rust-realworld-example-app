@@ -654,32 +654,34 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
         use models::UpdatedArticle;
 
         let incoming_article: UpdateArticle = serde_json::from_str(&request_body).unwrap();
-        let new_title: &str = incoming_article
-            .article
-            .title
-            .as_ref()
-            .map(|x| &**x)
-            .unwrap_or("");
-        let new_body: &str = incoming_article
-            .article
-            .body
-            .as_ref()
-            .map(|x| &**x)
-            .unwrap_or("");
-        let new_description: &str = incoming_article
-            .article
-            .description
-            .as_ref()
-            .map(|x| &**x)
-            .unwrap_or("");
-        let new_slug: &str = &slugify(new_title);
-
+        
         let article_result : ArticleResult = get_article(url_slug.to_owned()).unwrap();
         let original = article_result.article;
         let old_id = original.id;
         let old_author = original.author;
         let old_created = original.createdAt;
         let old_updated = original.updatedAt;
+
+
+        let new_title: &str = incoming_article
+            .article
+            .title
+            .as_ref()
+            .map(|x| &**x)
+            .unwrap_or(&original.title);
+        let new_body: &str = incoming_article
+            .article
+            .body
+            .as_ref()
+            .map(|x| &**x)
+            .unwrap_or(&original.body);
+        let new_description: &str = incoming_article
+            .article
+            .description
+            .as_ref()
+            .map(|x| &**x)
+            .unwrap_or(&original.description);
+        let new_slug: &str = &slugify(new_title);
 
         let new_article = UpdatedArticle {
             id : old_id,
@@ -976,7 +978,7 @@ fn update_article_test() {
     let url = format!("http://localhost:6767/api/articles/{}", title);
     let title2 = title + " NOT";
     let body = format!(
-        r#"{{"article": {{"title": "{}","description": "CHANGED1","body": "CHANGED2"}}}}"#,
+        r#"{{"article": {{"title": "{}","body": "CHANGED2"}}}}"#,
         title2
     );
 
@@ -994,7 +996,7 @@ fn update_article_test() {
     let article = create_result.article;
     assert_eq!(article.slug, slugify(title2.to_owned()));
     assert_eq!(article.title, title2);
-    assert_eq!(article.description, "CHANGED1");
+    //assert_eq!(article.description, "CHANGED1");
     assert_eq!(article.body, "CHANGED2");
     //assert_eq!(article.favorited, false);
     //assert_eq!(article.favoritesCount, 0);
