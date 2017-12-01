@@ -199,16 +199,20 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     let (body, logged_in_user_id) = prepare_parameters(req);
 
     let updated_user: UpdateUser = serde_json::from_str(&body).unwrap();
+    let original_user : User = get_user_by_id(logged_in_user_id).unwrap().user;
+    let original_bio = original_user.bio.unwrap_or_default();
+    let original_image = original_user.image.unwrap_or_default();
+
     let user_name: &str = &updated_user.user.username.as_ref().map(|x| &**x).unwrap_or(
-        "",
+        &original_user.username,
     );
-    let new_bio: &str = updated_user.user.bio.as_ref().map(|x| &**x).unwrap_or("");
-    let new_image: &str = updated_user.user.image.as_ref().map(|x| &**x).unwrap_or("");
-    let new_email: &str = &updated_user.user.email.as_ref().map(|x| &**x).unwrap_or("");
-    let new_password: &str = &updated_user.user.password.as_ref().map(|x| &**x).unwrap_or(
-        "",
-    );
+    let new_bio: &str = updated_user.user.bio.as_ref().map(|x| &**x).unwrap_or(&original_bio);
+    let new_image: &str = updated_user.user.image.as_ref().map(|x| &**x).unwrap_or(&original_image);
+    let new_email: &str = &updated_user.user.email.as_ref().map(|x| &**x).unwrap_or(&original_user.email);
+    let new_password: &str = &updated_user.user.password.as_ref().map(|x| &**x).unwrap_or("");
+
     let new_token: &str = &crypto::pbkdf2::pbkdf2_simple(new_password, 10000).unwrap();
+         
 
     #[cfg(feature = "diesel")] {
         let updated = UpdatedUser  {
@@ -261,7 +265,7 @@ fn get_user_by_name(user_name: &str) -> Option<User> {
 }
 
 #[cfg(feature = "diesel")]
-fn get_current_user(user_id: i32) -> Option<UserResult> {
+fn get_user_by_id(user_id: i32) -> Option<UserResult> {
     use schema::users::dsl::*;
 
     let connection = establish_connection();
@@ -284,7 +288,7 @@ pub fn get_current_user_handler(req: Request, res: Response, _: Captures) {
         &[&logged_in_user_id],
     );
     #[cfg(feature = "diesel")]
-    process(res, get_current_user,logged_in_user_id);
+    process(res, get_user_by_id, logged_in_user_id);
 }
 
 fn get_profile_result(user: User) -> Option<ProfileResult> {
