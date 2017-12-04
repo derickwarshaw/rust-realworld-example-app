@@ -71,11 +71,24 @@ fn get_comment_from_row(row: tiberius::query::QueryRow) -> Option<CommentResult>
     result
 }
 
+#[cfg(feature = "diesel")]
+fn add_comment(comment: NewComment) -> Option<CommentResult> {
+    use schema::comments;
+    let connection = establish_connection();
+
+    let comment_result: Comment = diesel::insert(&comment)
+        .into(comments::table)
+        .get_result(&connection)
+        .expect("Error saving new post");    
+
+    Some(CommentResult { comment: comment_result,} )
+}
+
 pub fn add_comment_handler(req: Request, res: Response, c: Captures) {
     let (body, logged_id) = prepare_parameters(req);
 
-    let add_comment: AddComment = serde_json::from_str(&body).unwrap();
-    let comment_body: &str = &add_comment.comment.body;
+    let raw_comment: AddComment = serde_json::from_str(&body).unwrap();
+    let comment_body: &str = &raw_comment.comment.body;
     println!("comment_body: {}", comment_body);
 
     let caps = c.unwrap();
@@ -84,6 +97,23 @@ pub fn add_comment_handler(req: Request, res: Response, c: Captures) {
         "",
     );
     println!("add_comment_handler slug: '{}'", slug);
+
+     #[cfg(feature = "diesel")] {
+         use chrono::prelude::*;
+         let utc: DateTime<Utc> = Utc::now();
+
+         let article = get_advanced_article(slug).unwrap().article;
+         
+         let comment = NewComment {
+             createdat : utc.naive_utc(),
+             updatedat: None,
+             body : &comment_body,
+             articleid : article.id,
+             author : logged_id,
+         };
+
+         process(res, add_comment, comment)
+     }
 
     #[cfg(feature = "tiberius")]
     process(
@@ -99,15 +129,37 @@ pub fn add_comment_handler(req: Request, res: Response, c: Captures) {
     );
 }
 
+fn delete_comment(comment_to_del: Comment) -> Option<bool> {
+    use schema::comments::dsl::*;
+    let connection = establish_connection();
+
+    diesel::delete(comments.filter(id.eq(comment_to_del.id)))
+        .execute(&connection);
+    None
+}
+
 
 pub fn delete_comment_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_id) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let url_params = &caps[0];
-    let id = url_params.split("/").last().unwrap();
+    let comment_id = url_params.split("/").last().unwrap();
     println!("delete_comment_handler url_params: {}", url_params);
-    println!("id: {}", id);
+    println!("id: {}", comment_id);
+
+    #[cfg(feature = "diesel")] {
+        use schema::comments::dsl::*;
+
+        let connection = establish_connection();
+
+        let comment_to_del: Comment = comments
+            .filter(id.eq(comment_id.parse::<i32>().unwrap()).and(author.eq(logged_id)))
+            .first(&connection)
+            .unwrap();
+
+        process(res, delete_comment, comment_to_del)
+    }
 
     #[cfg(feature = "tiberius")]
     process(
@@ -124,6 +176,19 @@ pub fn delete_comment_handler(req: Request, res: Response, c: Captures) {
 
 fn comments_result(_: CommentsResult) {}
 
+#[cfg(feature = "diesel")]
+fn get_comments(url_slug: &str) -> Option<CommentsResult> {
+    let connection = establish_connection();
+
+    let article: Article = get_article(url_slug);
+
+    let result : Vec<Comment> = <Comment as BelongingToDsl<&Article>>::belonging_to(&article)
+        .load::<Comment>(&connection)
+        .expect("Error loading comments");
+
+    Some(CommentsResult { comments: result,})
+}
+
 pub fn get_comments_handler(req: Request, res: Response, c: Captures) {
     let (_, logged_id) = prepare_parameters(req);
 
@@ -133,6 +198,10 @@ pub fn get_comments_handler(req: Request, res: Response, c: Captures) {
         "",
     );
     println!("get_comments_handler slug: '{}'", slug);
+
+    #[cfg(feature = "diesel")] {
+        process(res, get_comments, &slug)
+    }
 
     #[cfg(feature = "tiberius")]
     process_container(
@@ -153,7 +222,7 @@ pub fn get_comments_handler(req: Request, res: Response, c: Captures) {
 use rand::Rng;
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn add_comment_test() {
     let client = Client::new();
 
@@ -179,17 +248,18 @@ fn add_comment_test() {
     let create_result: CommentResult = serde_json::from_str(&buffer).unwrap();
     let comment = create_result.comment;
     assert_eq!(comment.body, comment_body);
-    assert_eq!(comment.author.username, user_name);
+    //assert_eq!(comment.author.username, user_name);
 
     assert_eq!(res.status, hyper::Ok);
 
+    //TODO
     let mut res = client
         .get(&url)
         .header(Authorization(Bearer { token: jwt }))
         .body(&body)
         .send()
         .unwrap();
-    let mut buffer = String::new();
+    buffer = String::new();
     res.read_to_string(&mut buffer).unwrap();
 
     let comments: CommentsResult = serde_json::from_str(&buffer).unwrap();
@@ -197,7 +267,7 @@ fn add_comment_test() {
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn delete_comment_test() {
     let client = Client::new();
 

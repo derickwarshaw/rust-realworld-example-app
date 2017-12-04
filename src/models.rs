@@ -1,11 +1,6 @@
 extern crate chrono;
 
-use super::schema::users;
-use super::schema::articles;
-use super::schema::tags;
-use super::schema::articletags;
-use super::schema::favoritedarticles;
-use super::schema::followings;
+use super::schema::*;
 
 use chrono::prelude::*;
 use diesel::prelude::*;
@@ -105,6 +100,36 @@ pub struct UpdatedUser<'a> {
     pub bio: &'a str,
 }
 
+#[derive(Identifiable, Queryable, Associations)]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+#[table_name = "comments"]
+#[allow(non_snake_case)]
+#[belongs_to(Article, foreign_key = "articleid")]
+pub struct Comment {
+    pub id: i32,
+    pub createdAt: NaiveDateTime,
+    pub updatedAt: Option<NaiveDateTime>,
+    pub body: String,
+    //author: Profile,
+    pub author: i32,
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    pub articleid : i32,
+}
+
+#[derive(Insertable)]
+#[table_name = "comments"]
+#[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+pub struct NewComment<'a> {
+    pub createdat: NaiveDateTime,
+    pub updatedat: Option<NaiveDateTime>,
+    pub body:  &'a str,
+    pub author: i32,
+    pub articleid: i32,
+}
+
 #[derive(Insertable)]
 #[table_name = "articles"]
 #[derive(Debug)]
@@ -140,6 +165,8 @@ pub struct IncomingArticleResult {
 #[derive(Debug)]
 #[has_many(articletags)]
 #[has_many(favoritedarticles)]
+#[has_many(comments)]
+#[table_name = "articles"]
 #[allow(non_snake_case)]
 pub struct Article {
     pub id: i32,

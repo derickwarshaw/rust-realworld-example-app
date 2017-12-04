@@ -143,7 +143,7 @@ struct UpdateArticleDetail {
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
-struct Profile {
+pub struct Profile {
     username: String,
     bio: Option<String>,
     image: Option<String>,
@@ -152,33 +152,22 @@ struct Profile {
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
-struct ProfileResult {
+pub struct ProfileResult {
     profile: Profile,
 }
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[allow(non_snake_case)]
-struct Comment {
-    id: i32,
-    createdAt: NaiveDateTime,
-    updatedAt: NaiveDateTime,
-    body: String,
-    author: Profile,
-}
-
-#[derive(Serialize, Deserialize)]
-#[derive(Debug)]
-#[allow(non_snake_case)]
-struct CommentResult {
-    comment: Comment,
+pub struct CommentResult {
+    pub comment: Comment,
 }
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[allow(non_snake_case)]
 struct CommentsResult {
-    comments: Vec<Comment>,
+    pub comments: Vec<Comment>,
 }
 
 impl Container<Comment> for CommentsResult {
