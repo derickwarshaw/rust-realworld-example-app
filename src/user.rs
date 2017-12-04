@@ -186,8 +186,6 @@ pub fn registration_handler(req: Request, res: Response, _: Captures) {
 
 #[cfg(feature = "diesel")] 
 fn update_user(updated: UpdatedUser) -> Option<UserResult> {
-    use schema::users;
-
     let conn = establish_connection();
 
     let result = updated.save_changes::<User>(&conn).unwrap();
@@ -355,7 +353,6 @@ pub fn unfollow_handler(req: Request, res: Response, c: Captures) {
 #[cfg(feature = "diesel")]
 fn is_followed(user_id: i32) -> bool {
     use schema::followings::dsl::*;
-    use diesel::expression::count;
 
     let connection = establish_connection();
 
@@ -625,7 +622,7 @@ pub fn follow_jacob() -> (std::string::String, std::string::String, std::string:
 }
 
 #[cfg(test)]
-//#[test]
+#[test]
 fn registration_test() {
     register_jacob();
 }

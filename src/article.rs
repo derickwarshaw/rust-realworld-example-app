@@ -38,7 +38,7 @@ use super::*;
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[allow(non_snake_case)]
-struct ArticlesResult {
+pub struct ArticlesResult {
     articles: Vec<Article>,
 }
 
@@ -46,7 +46,7 @@ struct ArticlesResult {
 #[derive(Debug)]
 #[allow(non_snake_case)]
 pub struct ArticleResult {
-    article: AdvancedArticle,
+    pub article: AdvancedArticle,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -313,7 +313,6 @@ fn favorite_article<'a>(new_relationship: NewArticleUser) {
 #[cfg(feature = "diesel")]
 fn get_favorites_count(article_id: i32) -> i64 {
     use schema::favoritedarticles::dsl::*;
-    use diesel::expression::count;
 
     let connection = establish_connection();
 
@@ -340,13 +339,13 @@ pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
             "/favorite","",
         );
 
-        let article = get_article(url_slug.to_owned());
+        let article = get_advanced_article(url_slug);
         let new_relationship = NewArticleUser {
             userid : logged_in_user_id,
             articleid : article.unwrap().article.id,
     }   ;
         favorite_article(new_relationship);
-        process(res, get_article, url_slug.to_owned() );
+        process(res, get_advanced_article, url_slug );
     };
 
     #[cfg(feature = "tiberius")]
@@ -366,18 +365,16 @@ pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
 pub fn unfavorite_article_handler(req: Request, res: Response, c: Captures) {
     #[cfg(feature = "diesel")]
     {
-        use schema::favoritedarticles::dsl::*;
-
         let (_, logged_in_user_id) = prepare_parameters(req);
         let caps = c.unwrap();
         let url_slug = &caps[0].replace("/api/articles/", "").replace(
             "/favorite","",
         );
 
-        let article: ArticleResult = get_article(url_slug.to_owned()).unwrap();
+        let article: ArticleResult = get_advanced_article(url_slug).unwrap();
 
         unfavorite_article(article.article.id, logged_in_user_id);
-        process(res, get_article, url_slug.to_owned() );
+        process(res, get_advanced_article, url_slug);
     };
 
     #[cfg(feature = "tiberius")]
@@ -585,14 +582,22 @@ fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
     tag_objs.into_iter().map(|t| t.tag).collect()
 }
 
-fn get_article(url_slug: String) -> Option<ArticleResult> {
+pub fn get_article(url_slug: &str) -> Article {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    let article: Article = articles
+    let result: Article = articles
         .filter(slug.eq(url_slug))
         .first(&connection)
         .unwrap();
+
+    result
+}
+
+pub fn get_advanced_article(url_slug: &str) -> Option<ArticleResult> {
+    let connection = establish_connection();
+
+    let article = get_article(url_slug);
 
     let tag_names = get_tags_for_article(&article, connection);
     let favorites_count = get_favorites_count(article.id);
@@ -619,7 +624,7 @@ pub fn get_article_handler(req: Request, res: Response, c: Captures) {
     let caps = c.unwrap();
     let url_slug = &caps[0].replace("/api/articles/", "");
 
-    #[cfg(feature = "diesel")] process(res, get_article, (url_slug.to_owned()));
+    #[cfg(feature = "diesel")] process(res, get_advanced_article, (url_slug));
 
     #[cfg(feature = "tiberius")]
     process_and_return_article(
@@ -634,13 +639,11 @@ pub fn get_article_handler(req: Request, res: Response, c: Captures) {
 
 #[cfg(feature = "diesel")]
 pub fn update_article<'a>(new_article: UpdatedArticle) -> Option<ArticleResult> {
-    use schema::articles;
-
     let conn = establish_connection();
 
     let result = new_article.save_changes::<Article>(&conn).unwrap();
 
-    get_article(result.slug)
+    get_advanced_article(&result.slug)
 }
 
 pub fn update_article_handler(req: Request, res: Response, c: Captures) {
@@ -655,7 +658,7 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
 
         let incoming_article: UpdateArticle = serde_json::from_str(&request_body).unwrap();
         
-        let article_result : ArticleResult = get_article(url_slug.to_owned()).unwrap();
+        let article_result : ArticleResult = get_advanced_article(url_slug).unwrap();
         let original = article_result.article;
         let old_id = original.id;
         let old_author = original.author;
@@ -728,7 +731,8 @@ fn delete_article (url_slug: String) -> Option<bool> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
 
-    diesel::delete(articles.filter(slug.eq(url_slug))).execute(&connection);
+    diesel::delete(articles.filter(slug.eq(url_slug)))
+        .execute(&connection);
     None
 }
 
