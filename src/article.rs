@@ -471,15 +471,74 @@ pub struct FilterParams<'a> {
 
 // order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
 
-fn get_articles_by_filter(filter: FilterParams) -> Vec<Article> {
+fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
+    use diesel::prelude::*;
+    use schema::articles::dsl::*;
+    use schema::users::dsl::*;
+    use schema::users;
+    //use schema::tags::dsl::*;
+    //use schema::articletags::dsl::*;
     use schema::articles;
+    use schema::tags;
+    use schema::articletags;
+    use schema::favoritedarticles;
+    use schema::favoritedarticles::dsl::*;
+    use std::collections::HashSet;
 
     let connection = establish_connection();
-    articles::table
-    //.filter()
-    .load(&connection).expect(
-        "Error loading articles",
-    )
+
+    let result : Vec<Article> = articles::table
+        .limit(20)
+        .load::<Article>(&connection)
+        .expect("Error loading articles list");
+    
+    //let query = articles::table.into_boxed();
+    let mut withTag: HashSet<i32> = HashSet::new();
+    let mut withAuthor: HashSet<i32> = HashSet::new();
+    let mut withFavoritedBy: HashSet<i32> = HashSet::new();
+
+    if params.tag != "" {
+        withTag = articletags::table
+            .inner_join(tags::table)
+            //.filter(articletags::tagid.eq(tags::id).and(tags::tag.eq(params.tag)))
+            .filter(tags::tag.eq(params.tag))
+            .select(articletags::articleid)
+            .load::<i32>(&connection)
+            .expect("Error loading articles with tag")
+            .into_iter().collect();
+    }
+    //[WIP]
+    // if params.author != "" {
+    //     withAuthor = articles::table
+    //         .inner_join(users::table.on(
+    //             users::id.eq(articles::author)
+    //         ))
+    //         .filter(users::username.eq(params.author))
+    //         .select(articles::id)
+    //         .load::<i32>(&connection)
+    //         .expect("Error loading articles with author")
+    //         .into_iter().collect();
+    // }
+    if params.favorited != "" {
+        withFavoritedBy = favoritedarticles::table
+            .inner_join(users::table)
+            .filter(users::username.eq(params.author))
+            .select(favoritedarticles::articleid)
+            .load::<i32>(&connection)
+            .expect("Error loading articles with favorited by")
+            .into_iter().collect();
+    }
+
+    let intersection = withTag.intersection(&withFavoritedBy);
+
+    // let result =
+    //     query
+    //     .offset(params.offset as i64)
+    //     .limit(params.limit as i64)
+    //     .load(&connection).expect(
+    //         "Error loading articles",
+    //     );
+    result
 }
 
 pub fn list_article_handler(req: Request, res: Response, c: Captures) {
@@ -555,16 +614,6 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
         &[&logged_id, &offset, &limit, &tag, &author, &favorited]
     );
 }
-
-// #[cfg(feature = "tiberius")]
-// static ARTICLE_SELECT : &'static str = r#"
-//   SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
-//                 (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
-//                 (SELECT COUNT(*) FROM FavoritedArticles WHERE ArticleId = @id ) as FavoritesCount,
-//                 (SELECT COUNT(*) FROM FavoritedArticles WHERE UserId = @logged ) as PersonalFavoritesCount,
-// 				(SELECT STRING_AGG(Tag, ',') FROM [Tags] inner join ArticleTags on ArticleTags.TagId = Tags.Id where ArticleId=@id)  as Tags
-//                 FROM Articles INNER JOIN Users on Author=Users.Id  WHERE Articles.Id = @id
-// "#;
 
 
 fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
