@@ -447,23 +447,6 @@ pub struct FilterParams<'a> {
     pub limit: i32,
 }
 
-//         r#"SELECT Slug, Title, [Description], Body, Created, Updated, Users.UserName, Users.Bio, Users.[Image], 
-//         (SELECT COUNT(*) FROM Followings WHERE FollowerId=@logged AND Author=FollowingId) as [Following],
-//         (SELECT COUNT(*) FROM FavoritedArticles WHERE ArticleId = Articles.Id ) as FavoritesCount,
-//         (SELECT COUNT(*) FROM FavoritedArticles WHERE UserId = @logged ) as PersonalFavoritesCount,
-// 		(SELECT STRING_AGG(Tag, ',') FROM [Tags] inner join ArticleTags on ArticleTags.TagId = Tags.Id where ArticleId=Articles.Id)  as Tags
-//         FROM Articles INNER JOIN Users on Author=Users.Id  
-		
-// 		WHERE Articles.Id in ( SELECT ArticleId from ArticleTags WHERE TagId IN ( Select Id from Tags where Tag = @tag OR LEN(@tag) = 0 )  ) 
-// 		/*inner join ArticleTags on ArticleTags.ArticleId = Articles.id 
-// 		inner join Tags on Tags.Id = ArticleTags.TagId and Tag = @tag OR LEN(@tag) = 0*/
-		
-// 		AND Articles.Author in ( SELECT Id from Users where UserName = @username OR LEN(@username) = 0 ) 
-
-// 		AND Articles.Id in ( SELECT ArticleId from FavoritedArticles WHERE UserId IN ( SELECT Id from Users where UserName = @favorited OR LEN(@favorited) = 0 )  ) 
-
-// order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
-
 fn get_articles_feed_by_filter(params: FilterParams) -> Vec<Article> {
     use schema::followings;
     use schema::users;
@@ -700,6 +683,21 @@ order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
     );
 }
 
+fn delete_tags_for_article(art: Article) {
+    use schema::articletags::dsl::*;
+    let conn = establish_connection();
+    
+    let tag_links : Vec<ArticleTag> =
+        ArticleTag::belonging_to(&art)
+        .load(&conn)
+        .expect("Error loading article tag links");
+    
+    for link in tag_links {
+        diesel::delete(articletags.filter(id.eq(link.id)))
+        .execute(&conn)
+        .expect("Error deleting article tag link");
+    }
+}
 
 fn get_tags_for_article(article: &Article, conn: PgConnection) -> Vec<String> {
     use diesel::expression::dsl::any;
@@ -864,6 +862,9 @@ pub fn update_article_handler(req: Request, res: Response, c: Captures) {
 fn delete_article (url_slug: String) -> Option<bool> {
     use schema::articles::dsl::*;
     let connection = establish_connection();
+
+    let ar = get_article(&url_slug);
+    delete_tags_for_article(ar);
 
     diesel::delete(articles.filter(slug.eq(url_slug)))
         .execute(&connection).expect("Failed to delete an article");
