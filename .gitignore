@@ -23,3 +23,8 @@ Thumbs.db
 conduit.toml
 target/**
 .Cargo.toml.swp
+*.*~
+*.env
+.vagrant
+
+src/.vscode/tasks.json
