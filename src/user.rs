@@ -250,6 +250,7 @@ pub fn update_user_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
+#[cfg(feature = "diesel")]
 fn get_user_by_name(user_name: &str) -> Option<User> {
     use schema::users::dsl::*;
 
@@ -263,7 +264,7 @@ fn get_user_by_name(user_name: &str) -> Option<User> {
 }
 
 #[cfg(feature = "diesel")]
-fn get_user_by_id(user_id: i32) -> Option<UserResult> {
+pub fn get_user_by_id(user_id: i32) -> Option<UserResult> {
     use schema::users::dsl::*;
 
     let connection = establish_connection();

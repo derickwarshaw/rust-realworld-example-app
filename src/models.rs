@@ -24,8 +24,8 @@ pub struct User {
 #[derive(Serialize, Deserialize)]
 #[table_name = "followings"]
 #[primary_key(id)]
-//#[belongs_to(User, foreign_key = "followingid")]
-#[belongs_to(User, foreign_key = "followerid")]
+#[belongs_to(User, foreign_key = "followingid")]
+//#[belongs_to(User, foreign_key = "followerid")]
 pub struct Following {
     pub id: i32,
     pub followingid: i32,
@@ -163,11 +163,13 @@ pub struct IncomingArticleResult {
 #[derive(Identifiable, Queryable, Associations)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
+#[derive(Clone)]
 #[has_many(articletags)]
 #[has_many(favoritedarticles)]
 #[has_many(comments)]
 #[table_name = "articles"]
 #[allow(non_snake_case)]
+#[belongs_to(User, foreign_key = "author")]
 pub struct Article {
     pub id: i32,
     pub slug: String,

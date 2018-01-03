@@ -418,12 +418,12 @@ pub fn feed_handler(req: Request, res: Response, c: Captures) {
     #[cfg(feature = "diesel")] {
         let filter: FilterParams = FilterParams {
             tag: "",
-            author: "",
+            author: &logged_id.to_string(),
             favorited: "",
             offset: offset,
             limit: limit,
         };
-        process_container(res, articles_result, get_articles_by_filter, filter);
+        process_container(res, articles_result, get_articles_feed_by_filter, filter);
     }
 
     #[cfg(feature = "tiberius")]
@@ -471,13 +471,54 @@ pub struct FilterParams<'a> {
 
 // order by Articles.Id DESC OFFSET @p2 ROWS FETCH NEXT @p3 ROWS Only"#,
 
+fn get_articles_feed_by_filter(params: FilterParams) -> Vec<Article> {
+    use schema::followings;
+    use schema::followings::dsl::*;
+    use schema::articles;
+    use schema::articles::dsl::*;
+    use schema::users;
+    use schema::users::dsl::*;
+
+    let connection = establish_connection();    
+
+    let followed_users_ids : Vec<i32> =
+        followings::table
+        .filter(followings::followerid.eq(params.author.parse::<i32>().unwrap()))
+        .select(followings::followingid)
+        // .offset(params.offset as i64)
+        // .limit(params.limit as i64)
+        .load(&connection).expect("Error loading articles");
+
+    let users_iter : Vec<User> =
+        followed_users_ids
+        .into_iter()
+        .map(|user_id| 
+            users::table
+            .filter(users::id.eq(user_id))
+            .first(&connection)
+            .unwrap()
+        ).collect();
+
+    let result : Vec<Article> =
+        users_iter
+        .into_iter()
+        .flat_map(|u : User| 
+            Article::belonging_to(&u)
+            //.order(articles::id.desc())
+            .load::<Article>(&connection)
+            .expect("Error loading articles with author")
+        ).collect();
+        // .into_iter()
+        // .map(|v| v.clone())
+        // .collect::<Vec<Article>>();
+    result
+}
+
 fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
     use diesel::prelude::*;
     use schema::articles::dsl::*;
     use schema::users::dsl::*;
     use schema::users;
-    //use schema::tags::dsl::*;
-    //use schema::articletags::dsl::*;
     use schema::articles;
     use schema::tags;
     use schema::articletags;
@@ -485,17 +526,13 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
     use schema::favoritedarticles::dsl::*;
     use std::collections::HashSet;
 
-    let connection = establish_connection();
+    let connection = establish_connection();    
 
-    let result : Vec<Article> = articles::table
-        .limit(20)
-        .load::<Article>(&connection)
-        .expect("Error loading articles list");
-    
-    //let query = articles::table.into_boxed();
     let mut withTag: HashSet<i32> = HashSet::new();
     let mut withAuthor: HashSet<i32> = HashSet::new();
     let mut withFavoritedBy: HashSet<i32> = HashSet::new();
+    let mut intersection: &HashSet<i32> = &HashSet::new();
+    let mut for_intersection: Vec<&HashSet<_>> = Vec::new();
 
     if params.tag != "" {
         withTag = articletags::table
@@ -506,38 +543,100 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
             .load::<i32>(&connection)
             .expect("Error loading articles with tag")
             .into_iter().collect();
+        if withTag.len() > 0{
+            for_intersection.push(&withTag);
+        }
+        
     }
-    //[WIP]
-    // if params.author != "" {
-    //     withAuthor = articles::table
-    //         .inner_join(users::table.on(
-    //             users::id.eq(articles::author)
-    //         ))
-    //         .filter(users::username.eq(params.author))
-    //         .select(articles::id)
-    //         .load::<i32>(&connection)
-    //         .expect("Error loading articles with author")
-    //         .into_iter().collect();
-    // }
+
+    if params.author != "" {
+        let current_author = users::table
+                    .filter(users::username.eq(params.author))
+                    .first::<User>(&connection)
+                    .expect("Error loading author for articles");
+
+        withAuthor = Article::belonging_to(&current_author)
+                    .load::<Article>(&connection)
+                    .expect("Error loading articles with author")
+                    .into_iter()
+                    .map(|a| a.id)
+                    .collect();
+
+        if withAuthor.len() > 0{
+            for_intersection.push(&withAuthor);
+        }
+    }
     if params.favorited != "" {
         withFavoritedBy = favoritedarticles::table
             .inner_join(users::table)
-            .filter(users::username.eq(params.author))
+            .filter(users::username.eq(params.favorited))
             .select(favoritedarticles::articleid)
             .load::<i32>(&connection)
             .expect("Error loading articles with favorited by")
             .into_iter().collect();
+        if withFavoritedBy.len() > 0{
+            for_intersection.push(&withFavoritedBy);
+        }
     }
 
-    let intersection = withTag.intersection(&withFavoritedBy);
+    if for_intersection.len() > 1 {
+        let last = for_intersection.pop().unwrap();
+        intersection =  last;
 
-    // let result =
-    //     query
-    //     .offset(params.offset as i64)
-    //     .limit(params.limit as i64)
-    //     .load(&connection).expect(
-    //         "Error loading articles",
-    //     );
+        for f in for_intersection {
+            let intersection = &intersection.intersection(f).into_iter().map(|v| v.clone()).collect::<HashSet<i32>>();
+        }               
+    }
+    else {
+        intersection =  for_intersection.pop().unwrap();
+    }
+
+    println!("intersection size 1: {}", intersection.len().to_string());
+    let mut int_vec: Vec<&i32> = intersection.into_iter().collect();
+
+    //sort
+    int_vec.sort();
+    println!("intersection size 2: {}", int_vec.len().to_string());
+
+    //apply limit
+    let final_length = if params.limit > intersection.len() as i32 { intersection.len() as i32 } else { params.limit };
+    int_vec.truncate(final_length as usize);
+    println!("intersection size 3: {}", int_vec.len().to_string());
+    //apply offset
+    if (params.offset < final_length) {
+        int_vec = int_vec.split_off(params.offset as usize);
+        println!("intersection size 4: {}", int_vec.len().to_string());
+    }
+
+    let fav_vec: Vec<i32> = withFavoritedBy.clone().into_iter().collect();
+    let tag_vec: Vec<i32> = withTag.clone().into_iter().collect();
+    let auth_vec: Vec<i32> = withAuthor.clone().into_iter().collect();
+    
+    println!("intersection size 5: {}", int_vec.len().to_string());
+    for x in &fav_vec {
+        println!("favorited: {}", x.to_string());
+    }
+    for x in &tag_vec {
+        println!("tags: {}", x.to_string());
+    }
+    for x in &auth_vec {
+        println!("author's articles: {}", x.to_string());
+    }
+    for x in &int_vec {
+        println!("intersection: {}", x.to_string());
+    }
+
+    let result : Vec<Article> = intersection
+                                .into_iter()
+                                .map(|item_id| 
+                                        articles::table
+                                        .filter(articles::id.eq(item_id))
+                                        .first::<Article>(&connection)
+                                        .expect("Error loading articles list")
+                                )
+                                .into_iter()
+                                .collect();
+
     result
 }
 
@@ -964,10 +1063,12 @@ fn get_article_test() {
 fn list_article_test() {
     let client = Client::new();
 
-    let (_, _, _) = login_create_article(false);
+    let (_, _, user_name) = login_create_article(true);
+
+    let url = format!("http://localhost:6767/api/articles?tag=dragons&author={}", "Jacob-1514929891028-928");
 
     let mut res = client
-        .get("http://localhost:6767/api/articles?tag=dragons")
+        .get(&url)
         .body("")
         .send()
         .unwrap();
@@ -1003,7 +1104,7 @@ fn unfollowed_feed_article_test() {
 
 #[cfg(test)]
 #[test]
-fn followed_feed_article_test() {
+fn following_feed_article_test() {
     let client = Client::new();
 
     let (jwt, _, _) = login_create_article(true);
