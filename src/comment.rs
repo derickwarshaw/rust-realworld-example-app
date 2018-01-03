@@ -134,7 +134,7 @@ fn delete_comment(comment_to_del: Comment) -> Option<bool> {
     let connection = establish_connection();
 
     diesel::delete(comments.filter(id.eq(comment_to_del.id)))
-        .execute(&connection);
+        .execute(&connection).expect("Failed to delete a comment");
     None
 }
 

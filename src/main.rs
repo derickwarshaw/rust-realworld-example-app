@@ -224,6 +224,7 @@ struct Config {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(non_snake_case)]
 struct DatabaseConfig {
     connection_string: Option<String>,
     database_name: Option<String>,

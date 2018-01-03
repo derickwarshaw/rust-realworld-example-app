@@ -3,7 +3,6 @@ extern crate chrono;
 use super::schema::*;
 
 use chrono::prelude::*;
-use diesel::prelude::*;
 
 #[derive(Identifiable, Queryable, Associations)]
 #[derive(Serialize, Deserialize)]
@@ -40,11 +39,11 @@ pub struct NewFollowing {
     pub followerid: i32,
 }
 
+#[allow(non_snake_case)]
 #[derive(Queryable)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
 #[derive(Clone)]
-#[allow(non_snake_case)]
 pub struct AdvancedArticle {
     pub id: i32,
     pub slug: String,
@@ -160,6 +159,7 @@ pub struct IncomingArticleResult {
     pub article: IncomingArticle,
 }
 
+#[allow(non_snake_case)]
 #[derive(Identifiable, Queryable, Associations)]
 #[derive(Serialize, Deserialize)]
 #[derive(Debug)]
@@ -168,7 +168,6 @@ pub struct IncomingArticleResult {
 #[has_many(favoritedarticles)]
 #[has_many(comments)]
 #[table_name = "articles"]
-#[allow(non_snake_case)]
 #[belongs_to(User, foreign_key = "author")]
 pub struct Article {
     pub id: i32,

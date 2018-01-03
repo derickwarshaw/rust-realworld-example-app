@@ -1,5 +1,3 @@
-#![feature(custom_attribute)]
-
 extern crate bson;
 
 extern crate iis;
@@ -62,7 +60,7 @@ impl Container<Article> for ArticlesResult {
     }
 }
 
-pub fn get_tag_names<'a>(a: &str) -> Option<TagsResult> {
+pub fn get_tag_names<'a>(_a: &str) -> Option<TagsResult> {
         use models::Tag;
         use schema::tags;
 
@@ -172,7 +170,7 @@ pub fn create_article_tag<'a>(new_article : AdvancedArticle) {
         use schema::articletags;
         //use diesel::associations::HasTable;
 
-        let relationship: ArticleTag = diesel::insert(&new_relationship)
+        let _relationship: ArticleTag = diesel::insert(&new_relationship)
         .into(articletags::table)
         .get_result(&connection)
         .expect("Error saving new article-tag relationship");
@@ -257,12 +255,13 @@ pub fn create_article_handler(req: Request, res: Response, _: Captures) {
     );
 }
 
+#[cfg(feature = "tiberius")]
 fn process_and_return_article(
     name: &str,
     req: Request,
-    res: Response,
+    _res: Response,
     c: Captures,
-    sql_command: &'static str,
+    _sql_command: &'static str,
 ) {
     let (_, logged_id) = prepare_parameters(req);
 
@@ -276,8 +275,8 @@ fn process_and_return_article(
 
     #[cfg(feature = "tiberius")]
     process(
-        res,
-        sql_command,
+        _res,
+        _sql_command,
         ARTICLE_SELECT,
         get_article_from_row,
         &[&(slug.as_str()), &(logged_id)],
@@ -294,7 +293,7 @@ fn unfavorite_article<'a>(article_id: i32, user_id: i32) -> Option<bool> {
         .first(&connection)
         .unwrap();
 
-    diesel::delete(favoritedarticles.filter(id.eq(relationship.id))).execute(&connection);
+    diesel::delete(favoritedarticles.filter(id.eq(relationship.id))).execute(&connection).expect("Failed to unfavorite article");
     None
 }
 
@@ -304,7 +303,7 @@ fn favorite_article<'a>(new_relationship: NewArticleUser) {
 
     use schema::favoritedarticles;
 
-    let relationship: ArticleUser = diesel::insert(&new_relationship)
+    let _relationship: ArticleUser = diesel::insert(&new_relationship)
     .into(favoritedarticles::table)
     .get_result(&connection)
     .expect("Error saving new favorited article relationship");    
@@ -322,12 +321,6 @@ fn get_favorites_count(article_id: i32) -> i64 {
         .get_result(&connection)
         .unwrap();
     article_count
-}
-
-#[cfg(feature = "diesel")]
-fn is_favorited(article_id: i32) -> bool {
-    let count = get_favorites_count(article_id);
-    count > 0
 }
 
 pub fn favorite_article_handler(req: Request, res: Response, c: Captures) {
@@ -473,11 +466,7 @@ pub struct FilterParams<'a> {
 
 fn get_articles_feed_by_filter(params: FilterParams) -> Vec<Article> {
     use schema::followings;
-    use schema::followings::dsl::*;
-    use schema::articles;
-    use schema::articles::dsl::*;
     use schema::users;
-    use schema::users::dsl::*;
 
     let connection = establish_connection();    
 
@@ -516,26 +505,23 @@ fn get_articles_feed_by_filter(params: FilterParams) -> Vec<Article> {
 
 fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
     use diesel::prelude::*;
-    use schema::articles::dsl::*;
-    use schema::users::dsl::*;
     use schema::users;
     use schema::articles;
     use schema::tags;
     use schema::articletags;
     use schema::favoritedarticles;
-    use schema::favoritedarticles::dsl::*;
     use std::collections::HashSet;
 
     let connection = establish_connection();    
 
-    let mut withTag: HashSet<i32> = HashSet::new();
-    let mut withAuthor: HashSet<i32> = HashSet::new();
-    let mut withFavoritedBy: HashSet<i32> = HashSet::new();
+    let mut with_tag: HashSet<i32> = HashSet::new();
+    let mut with_author: HashSet<i32> = HashSet::new();
+    let mut with_favorited_by: HashSet<i32> = HashSet::new();
     let mut intersection: &HashSet<i32> = &HashSet::new();
     let mut for_intersection: Vec<&HashSet<_>> = Vec::new();
 
     if params.tag != "" {
-        withTag = articletags::table
+        with_tag = articletags::table
             .inner_join(tags::table)
             //.filter(articletags::tagid.eq(tags::id).and(tags::tag.eq(params.tag)))
             .filter(tags::tag.eq(params.tag))
@@ -543,8 +529,8 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
             .load::<i32>(&connection)
             .expect("Error loading articles with tag")
             .into_iter().collect();
-        if withTag.len() > 0{
-            for_intersection.push(&withTag);
+        if with_tag.len() > 0{
+            for_intersection.push(&with_tag);
         }
         
     }
@@ -555,27 +541,27 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
                     .first::<User>(&connection)
                     .expect("Error loading author for articles");
 
-        withAuthor = Article::belonging_to(&current_author)
+        with_author = Article::belonging_to(&current_author)
                     .load::<Article>(&connection)
                     .expect("Error loading articles with author")
                     .into_iter()
                     .map(|a| a.id)
                     .collect();
 
-        if withAuthor.len() > 0{
-            for_intersection.push(&withAuthor);
+        if with_author.len() > 0{
+            for_intersection.push(&with_author);
         }
     }
     if params.favorited != "" {
-        withFavoritedBy = favoritedarticles::table
+        with_favorited_by = favoritedarticles::table
             .inner_join(users::table)
             .filter(users::username.eq(params.favorited))
             .select(favoritedarticles::articleid)
             .load::<i32>(&connection)
             .expect("Error loading articles with favorited by")
             .into_iter().collect();
-        if withFavoritedBy.len() > 0{
-            for_intersection.push(&withFavoritedBy);
+        if with_favorited_by.len() > 0{
+            for_intersection.push(&with_favorited_by);
         }
     }
 
@@ -603,14 +589,14 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
     int_vec.truncate(final_length as usize);
     println!("intersection size 3: {}", int_vec.len().to_string());
     //apply offset
-    if (params.offset < final_length) {
+    if params.offset < final_length {
         int_vec = int_vec.split_off(params.offset as usize);
         println!("intersection size 4: {}", int_vec.len().to_string());
     }
 
-    let fav_vec: Vec<i32> = withFavoritedBy.clone().into_iter().collect();
-    let tag_vec: Vec<i32> = withTag.clone().into_iter().collect();
-    let auth_vec: Vec<i32> = withAuthor.clone().into_iter().collect();
+    let fav_vec: Vec<i32> = with_favorited_by.clone().into_iter().collect();
+    let tag_vec: Vec<i32> = with_tag.clone().into_iter().collect();
+    let auth_vec: Vec<i32> = with_author.clone().into_iter().collect();
     
     println!("intersection size 5: {}", int_vec.len().to_string());
     for x in &fav_vec {
@@ -641,7 +627,7 @@ fn get_articles_by_filter(params: FilterParams) -> Vec<Article> {
 }
 
 pub fn list_article_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_id) = prepare_parameters(req);
+    let (_, _) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let url_params = &caps[0].replace("/api/articles?", "");
@@ -768,7 +754,7 @@ pub fn get_advanced_article(url_slug: &str) -> Option<ArticleResult> {
 }
 
 pub fn get_article_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_in_user_id) = prepare_parameters(req);
+    let (_, _) = prepare_parameters(req);
     let caps = c.unwrap();
     let url_slug = &caps[0].replace("/api/articles/", "");
 
@@ -795,7 +781,7 @@ pub fn update_article<'a>(new_article: UpdatedArticle) -> Option<ArticleResult> 
 }
 
 pub fn update_article_handler(req: Request, res: Response, c: Captures) {
-    let (request_body, logged_id) = prepare_parameters(req);
+    let (request_body, _) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let url_slug = &caps[0].replace("/api/articles/", "");
@@ -880,7 +866,7 @@ fn delete_article (url_slug: String) -> Option<bool> {
     let connection = establish_connection();
 
     diesel::delete(articles.filter(slug.eq(url_slug)))
-        .execute(&connection);
+        .execute(&connection).expect("Failed to delete an article");
     None
 }
 

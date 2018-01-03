@@ -303,7 +303,7 @@ fn get_profile_result(user: User) -> Option<ProfileResult> {
 }
 
 pub fn get_profile_handler(req: Request, res: Response, c: Captures) {
-    let (_, logged_in_user_id) = prepare_parameters(req);
+    let (_, _) = prepare_parameters(req);
 
     let caps = c.unwrap();
     let profile = &caps[0].replace("/api/profiles/", "");
@@ -371,7 +371,7 @@ fn follow_user<'a>(follow: NewFollowing) {
 
     use schema::followings;
 
-    let relationship: Following = diesel::insert(&follow)
+    let _relationship: Following = diesel::insert(&follow)
     .into(followings::table)
     .get_result(&connection)
     .expect("Error saving new favorited article relationship");    
@@ -388,7 +388,7 @@ fn unfollow_user<'a>(follower_id: i32, following_id: i32) {
         .first(&connection)
         .unwrap();
 
-    diesel::delete(followings.filter(id.eq(relationship.id))).execute(&connection);   
+    diesel::delete(followings.filter(id.eq(relationship.id))).execute(&connection).expect("Failed to unfollow user");   
 }
 
 pub fn follow_handler(req: Request, res: Response, c: Captures) {
